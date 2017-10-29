@@ -7,7 +7,6 @@ byte tickRate;
 const word *trackList;
 const byte *trackBase;
 uint8_t pcm __attribute__((used)) = 128;
-bool half __attribute__((used));
 
 byte ChannelActiveMute = 0b11110000;
 //                         ||||||||
@@ -119,11 +118,12 @@ void ATMsynth::play(const byte *song) {
   osc[3].freq = 0x0001; // Seed LFSR
   channel[3].freq = 0x0001; // xFX
 
-  TCCR4A = 0b01000010;    // Fast-PWM 8-bit
-  TCCR4B = 0b00000001;    // 62500Hz
+  TCCR4A = 0b01000010;    // Set both OC4A and #OC4A pins
+  TCCR4B = 0b10000010;    // Frequency correct PWM (dual slope), clk/2/OCR4C ~= 31250Hz
   OCR4C  = 0xFF;          // Resolution to 8-bit (TOP=0xFF)
   OCR4A  = 0x80;
-  TIMSK4 = 0b00000100;
+  TIMSK4 = 0b00000100;    // Enable overflow interrupt
+  TCCR4D = 0b00000001;    // Phase correct PWM (dual slope)
 
 
   // Load a melody stream and start grinding samples

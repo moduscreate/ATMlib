@@ -14,8 +14,6 @@ extern const word *trackList;
 extern const byte *trackBase;
 extern uint8_t pcm;
 
-extern bool half;
-
 class ATMsynth {
 
   public:
@@ -63,15 +61,6 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "push r2                                          " "\n\t" \
                 "in   r2,                    __SREG__             " "\n\t" \
                 "push r18                                         " "\n\t" \
-                "lds  r18, half \n\t" \
-                "com  r18 \n\t" \
-                "sts  half, r18 \n\t" \
-                "breq continue \n\t" \
-                "pop  r18                                         " "\n\t" \
-                "out  __SREG__,              r2                   " "\n\t" \
-                "pop  r2                                          " "\n\t" \
-                "reti                                             " "\n\t" \
-                "continue: \n\t" \
                 "push r27                                         " "\n\t" \
                 "push r26                                         " "\n\t" \
                 "push r0                                          " "\n\t" \
