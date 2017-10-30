@@ -103,19 +103,28 @@ static inline const byte *getTrackPointer(byte track) {
   return trackBase + pgm_read_word(&trackList[track]);
 }
 
+// Stop playing, unload melody
+static void atmsynth_stop(void) {
+  TIMSK4 = 0; // Disable interrupt
+  memset(osc, 0, sizeof(osc));
+  memset(channel, 0, sizeof(channel));
+  /* mark the channel as stopped */
+  for (byte n = 0; n < 4; n++) {
+    channel[n].delay = 0xFFFF;
+  }
+  ChannelActiveMute = 0b11110000;
+}
 
 void ATMsynth::play(const byte *song) {
 
   // cleanUp stuff first
-  memset(channel, 0, sizeof(channel));
-  ChannelActiveMute = 0b11110000;
+  atmsynth_stop();
 
   // Initializes ATMsynth
   // Sets sample rate and tick rate
   tickRate = 25;
   cia = 15625 / tickRate;
   // Sets up the ports, and the sample grinding ISR
-
   osc[3].freq = 0x0001; // Seed LFSR
   channel[3].freq = 0x0001; // xFX
 
@@ -136,14 +145,13 @@ void ATMsynth::play(const byte *song) {
   // Fetch starting points for each track
   for (unsigned n = 0; n < 4; n++) {
     channel[n].ptr = getTrackPointer(pgm_read_byte(song++));
+    channel[n].delay = 0;
   }
 }
 
 // Stop playing, unload melody
 void ATMsynth::stop() {
-  TIMSK4 = 0; // Disable interrupt
-  memset(channel, 0, sizeof(channel));
-  ChannelActiveMute = 0b11110000;
+  atmsynth_stop();
 }
 
 // Start grinding samples or Pause playback
@@ -412,8 +420,7 @@ void ATM_playroutine() {
       }
       else
       {
-        memset(channel, 0, sizeof(channel));
-        TIMSK4 = 0; // Disable interrupt
+        atmsynth_stop();
       }
     }
   }
