@@ -405,23 +405,23 @@ void ATM_playroutine() {
         osc[n].vol = ch->vol;
       }
     }
-    // if all channels are inactive, stop playing or check for repeat
-    
-    if (!(ChannelActiveMute & 0xF0))
+  }
+
+  // if all channels are inactive, stop playing or check for repeat
+  if (!(ChannelActiveMute & 0xF0))
+  {
+    byte repeatSong = 0;
+    for (byte j = 0; j < 4; j++) repeatSong += channel[j].repeatPoint;
+    if (repeatSong) {
+      for (byte k = 0; k < 4; k++) {
+        channel[k].ptr = getTrackPointer(channel[k].repeatPoint);
+        channel[k].delay = 0;
+      }
+      ChannelActiveMute = 0b11110000;
+    }
+    else
     {
-      byte repeatSong = 0;
-      for (byte j = 0; j < 4; j++) repeatSong += channel[j].repeatPoint;
-      if (repeatSong) {
-        for (byte k = 0; k < 4; k++) {
-          channel[k].ptr = getTrackPointer(channel[k].repeatPoint);
-          channel[k].delay = 0;
-        }
-        ChannelActiveMute = 0b11110000;
-      }
-      else
-      {
-        atmsynth_stop();
-      }
+      atmsynth_stop();
     }
   }
 }
