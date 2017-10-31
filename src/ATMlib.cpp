@@ -124,6 +124,7 @@ void ATMsynth::play(const byte *song) {
   // Sets sample rate and tick rate
   tickRate = 25;
   cia = 15625 / tickRate;
+  cia_count = cia;
   // Sets up the ports, and the sample grinding ISR
   osc[3].freq = 0x0001; // Seed LFSR
   channel[3].freq = 0x0001; // xFX
