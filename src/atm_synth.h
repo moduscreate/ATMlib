@@ -12,6 +12,7 @@ extern uint8_t trackCount;
 extern const uint16_t *trackList;
 extern const uint8_t *trackBase;
 extern uint8_t pcm;
+extern uint16_t cia;
 extern uint16_t cia_count;
 
 extern bool half;

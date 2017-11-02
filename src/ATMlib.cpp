@@ -20,13 +20,6 @@ uint8_t ChannelActiveMute = 0b11110000;
 //                            |└------->  6  channel 2 is Active (0 = false / 1 = true)
 //                            └-------->  7  channel 3 is Active (0 = false / 1 = true)
 
-//Imports
-extern uint16_t cia;
-
-// Exports
-struct osc osc[4];
-
-
 const uint16_t noteTable[64] PROGMEM = {
   0,
   262,  277,  294,  311,  330,  349,  370,  392,  415,  440,  466,  494,
