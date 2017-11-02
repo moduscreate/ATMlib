@@ -288,162 +288,156 @@ void ATM_playroutine() {
 			}
 		}
 
-		if (ch->delay) {
-			if (ch->delay != 0xFFFF) {
-				ch->delay--;
-			}
-		} else {
-			do {
-				uint8_t cmd = pgm_read_byte(ch->ptr++);
-				if (cmd < 64) {
-					// 0 … 63 : NOTE ON/OFF
-					if (ch->note = cmd) {
-						ch->note += ch->transConfig;
-					}
-					ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
-					if (!ch->volFreConfig) {
-						ch->vol = ch->reCount;
-					}
-					if (ch->arpTiming & 0x20) {
-						ch->arpCount = 0; // ARP retriggering
-					}
-				} else if (cmd < 160) {
-					// 64 … 159 : SETUP FX
-					switch (cmd - 64) {
-						case 0: // Set volume
-							ch->vol = pgm_read_byte(ch->ptr++);
-							ch->reCount = ch->vol;
-							break;
-						case 1:
-						case 4: // Slide volume/frequency ON
-							ch->volFreSlide = pgm_read_byte(ch->ptr++);
-							ch->volFreConfig = (cmd - 64) == 1 ? 0x00 : 0x40;
-							break;
-						case 2:
-						case 5: // Slide volume/frequency ON advanced
-							ch->volFreSlide = pgm_read_byte(ch->ptr++);
-							ch->volFreConfig = pgm_read_byte(ch->ptr++);
-							break;
-						case 3:
-						case 6: // Slide volume/frequency OFF (same as 0x01 0x00)
-							ch->volFreSlide = 0;
-							break;
-						case 7: // Set Arpeggio
-							ch->arpNotes = pgm_read_byte(ch->ptr++);    // 0x40 + 0x03
-							ch->arpTiming = pgm_read_byte(ch->ptr++);   // 0x40 (no third note) + 0x20 (toggle retrigger) + amount
-							break;
-						case 8: // Arpeggio OFF
-							ch->arpNotes = 0;
-							break;
-						case 9: // Set Retriggering (noise)
-							ch->reConfig = pgm_read_byte(ch->ptr++);    // RETRIG: point = 1 (*4), speed = 0 (0 = fastest, 1 = faster , 2 = fast)
-							break;
-						case 10: // Retriggering (noise) OFF
-							ch->reConfig = 0;
-							break;
-						case 11: // ADD Transposition
-							ch->transConfig += (char)pgm_read_byte(ch->ptr++);
-							break;
-						case 12: // SET Transposition
-							ch->transConfig = pgm_read_byte(ch->ptr++);
-							break;
-						case 13: // Transposition OFF
-							ch->transConfig = 0;
-							break;
-						case 14:
-						case 16: // SET Tremolo/Vibrato
-							ch->treviDepth = pgm_read_word(ch->ptr++);
-							ch->treviConfig = pgm_read_word(ch->ptr++) + ((cmd - 64) == 14 ? 0x00 : 0x40);
-							break;
-						case 15:
-						case 17: // Tremolo/Vibrato OFF
-							ch->treviDepth = 0;
-							break;
-						case 18: // Glissando
-							ch->glisConfig = pgm_read_byte(ch->ptr++);
-							break;
-						case 19: // Glissando OFF
-							ch->glisConfig = 0;
-							break;
-						case 20: // SET Note Cut
-							ch->arpNotes = 0xFF;                        // 0xFF use Note Cut
-							ch->arpTiming = pgm_read_byte(ch->ptr++);   // tick amount
-							break;
-						case 21: // Note Cut OFF
-							ch->arpNotes = 0;
-							break;
-						case 92: // ADD tempo
-							tickRate += pgm_read_byte(ch->ptr++);
-							cia = 15625 / tickRate;
-							break;
-						case 93: // SET tempo
-							tickRate = pgm_read_byte(ch->ptr++);
-							cia = 15625 / tickRate;
-							break;
-						case 94: // Goto advanced
-							for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
-							break;
-						case 95: // Stop channel
-							ChannelActiveMute = ChannelActiveMute ^ (1 << (n + CH_COUNT));
-							ch->vol = 0;
-							ch->delay = 0xFFFF;
-							break;
-					}
-				} else if (cmd < 224) {
-					// 160 … 223 : DELAY
-					ch->delay = cmd - 159;
-				} else if (cmd == 224) {
-					// 224: LONG DELAY
-					ch->delay = read_vle(&ch->ptr) + 65;
-				} else if (cmd < 252) {
-					// 225 … 251 : RESERVED
-				} else if (cmd == 252 || cmd == 253) {
-					// 252 (253) : CALL (REPEATEDLY)
-					uint8_t new_counter = cmd == 252 ? 0 : pgm_read_byte(ch->ptr++);
-					uint8_t new_track = pgm_read_byte(ch->ptr++);
-
-					if (new_track != ch->track) {
-						// Stack PUSH
-						ch->stackCounter[ch->stackIndex] = ch->counter;
-						ch->stackTrack[ch->stackIndex] = ch->track; // note 1
-						ch->stackPointer[ch->stackIndex] = ch->ptr - trackBase;
-						ch->stackIndex++;
-						ch->track = new_track;
-					}
-
-					ch->counter = new_counter;
-					ch->ptr = getTrackPointer(ch->track);
-				} else if (cmd == 254) {
-					// 254 : RETURN
-					if (ch->counter > 0 || ch->stackIndex == 0) {
-						// Repeat track
-						if (ch->counter) {
-							ch->counter--;
-						}
-						ch->ptr = getTrackPointer(ch->track);
-						//asm volatile ("  jmp 0"); // reboot
-					} else {
-						// Check stack depth
-						if (ch->stackIndex == 0) {
-							// Stop the channel
-							ch->delay = 0xFFFF;
-						} else {
-							// Stack POP
-							ch->stackIndex--;
-							ch->ptr = ch->stackPointer[ch->stackIndex] + trackBase;
-							ch->counter = ch->stackCounter[ch->stackIndex];
-							ch->track = ch->stackTrack[ch->stackIndex]; // note 1
-						}
-					}
-				} else if (cmd == 255) {
-					// 255 : EMBEDDED DATA
-					ch->ptr += read_vle(&ch->ptr);
+		while (ch->delay == 0) {
+			uint8_t cmd = pgm_read_byte(ch->ptr++);
+			if (cmd < 64) {
+				// 0 … 63 : NOTE ON/OFF
+				if (ch->note = cmd) {
+					ch->note += ch->transConfig;
 				}
-			} while (ch->delay == 0);
+				ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
+				if (!ch->volFreConfig) {
+					ch->vol = ch->reCount;
+				}
+				if (ch->arpTiming & 0x20) {
+					ch->arpCount = 0; // ARP retriggering
+				}
+			} else if (cmd < 160) {
+				// 64 … 159 : SETUP FX
+				switch (cmd - 64) {
+					case 0: // Set volume
+						ch->vol = pgm_read_byte(ch->ptr++);
+						ch->reCount = ch->vol;
+						break;
+					case 1:
+					case 4: // Slide volume/frequency ON
+						ch->volFreSlide = pgm_read_byte(ch->ptr++);
+						ch->volFreConfig = (cmd - 64) == 1 ? 0x00 : 0x40;
+						break;
+					case 2:
+					case 5: // Slide volume/frequency ON advanced
+						ch->volFreSlide = pgm_read_byte(ch->ptr++);
+						ch->volFreConfig = pgm_read_byte(ch->ptr++);
+						break;
+					case 3:
+					case 6: // Slide volume/frequency OFF (same as 0x01 0x00)
+						ch->volFreSlide = 0;
+						break;
+					case 7: // Set Arpeggio
+						ch->arpNotes = pgm_read_byte(ch->ptr++);    // 0x40 + 0x03
+						ch->arpTiming = pgm_read_byte(ch->ptr++);   // 0x40 (no third note) + 0x20 (toggle retrigger) + amount
+						break;
+					case 8: // Arpeggio OFF
+						ch->arpNotes = 0;
+						break;
+					case 9: // Set Retriggering (noise)
+						ch->reConfig = pgm_read_byte(ch->ptr++);    // RETRIG: point = 1 (*4), speed = 0 (0 = fastest, 1 = faster , 2 = fast)
+						break;
+					case 10: // Retriggering (noise) OFF
+						ch->reConfig = 0;
+						break;
+					case 11: // ADD Transposition
+						ch->transConfig += (char)pgm_read_byte(ch->ptr++);
+						break;
+					case 12: // SET Transposition
+						ch->transConfig = pgm_read_byte(ch->ptr++);
+						break;
+					case 13: // Transposition OFF
+						ch->transConfig = 0;
+						break;
+					case 14:
+					case 16: // SET Tremolo/Vibrato
+						ch->treviDepth = pgm_read_word(ch->ptr++);
+						ch->treviConfig = pgm_read_word(ch->ptr++) + ((cmd - 64) == 14 ? 0x00 : 0x40);
+						break;
+					case 15:
+					case 17: // Tremolo/Vibrato OFF
+						ch->treviDepth = 0;
+						break;
+					case 18: // Glissando
+						ch->glisConfig = pgm_read_byte(ch->ptr++);
+						break;
+					case 19: // Glissando OFF
+						ch->glisConfig = 0;
+						break;
+					case 20: // SET Note Cut
+						ch->arpNotes = 0xFF;                        // 0xFF use Note Cut
+						ch->arpTiming = pgm_read_byte(ch->ptr++);   // tick amount
+						break;
+					case 21: // Note Cut OFF
+						ch->arpNotes = 0;
+						break;
+					case 92: // ADD tempo
+						tickRate += pgm_read_byte(ch->ptr++);
+						cia = 15625 / tickRate;
+						break;
+					case 93: // SET tempo
+						tickRate = pgm_read_byte(ch->ptr++);
+						cia = 15625 / tickRate;
+						break;
+					case 94: // Goto advanced
+						for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
+						break;
+					case 95: // Stop channel
+						ChannelActiveMute = ChannelActiveMute ^ (1 << (n + CH_COUNT));
+						ch->vol = 0;
+						ch->delay = 0xFFFF;
+						break;
+				}
+			} else if (cmd < 224) {
+				// 160 … 223 : DELAY
+				ch->delay = cmd - 159;
+			} else if (cmd == 224) {
+				// 224: LONG DELAY
+				ch->delay = read_vle(&ch->ptr) + 65;
+			} else if (cmd < 252) {
+				// 225 … 251 : RESERVED
+			} else if (cmd == 252 || cmd == 253) {
+				// 252 (253) : CALL (REPEATEDLY)
+				uint8_t new_counter = cmd == 252 ? 0 : pgm_read_byte(ch->ptr++);
+				uint8_t new_track = pgm_read_byte(ch->ptr++);
 
-			if (ch->delay != 0xFFFF) {
-				ch->delay--;
+				if (new_track != ch->track) {
+					// Stack PUSH
+					ch->stackCounter[ch->stackIndex] = ch->counter;
+					ch->stackTrack[ch->stackIndex] = ch->track; // note 1
+					ch->stackPointer[ch->stackIndex] = ch->ptr - trackBase;
+					ch->stackIndex++;
+					ch->track = new_track;
+				}
+
+				ch->counter = new_counter;
+				ch->ptr = getTrackPointer(ch->track);
+			} else if (cmd == 254) {
+				// 254 : RETURN
+				if (ch->counter > 0 || ch->stackIndex == 0) {
+					// Repeat track
+					if (ch->counter) {
+						ch->counter--;
+					}
+					ch->ptr = getTrackPointer(ch->track);
+					//asm volatile ("  jmp 0"); // reboot
+				} else {
+					// Check stack depth
+					if (ch->stackIndex == 0) {
+						// Stop the channel
+						ch->delay = 0xFFFF;
+					} else {
+						// Stack POP
+						ch->stackIndex--;
+						ch->ptr = ch->stackPointer[ch->stackIndex] + trackBase;
+						ch->counter = ch->stackCounter[ch->stackIndex];
+						ch->track = ch->stackTrack[ch->stackIndex]; // note 1
+					}
+				}
+			} else if (cmd == 255) {
+				// 255 : EMBEDDED DATA
+				ch->ptr += read_vle(&ch->ptr);
 			}
+		}
+
+		if (ch->delay != 0xFFFF) {
+			ch->delay--;
 		}
 
 		if (!(ChannelActiveMute & (1 << n))) {
