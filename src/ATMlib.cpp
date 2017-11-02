@@ -163,11 +163,11 @@ void ATMsynth::playPause() {
 // Toggle mute on/off on a channel, so it can be used for sound effects
 // So you have to call it before and after the sound effect
 void ATMsynth::muteChannel(byte ch) {
-  ChannelActiveMute += (1 << 0 );
+  ChannelActiveMute += (1 << ch);
 }
 
 void ATMsynth::unMuteChannel(byte ch) {
-  ChannelActiveMute &= (~(1 << 0 ));
+  ChannelActiveMute &= (~(1 << ch));
 }
 
 
