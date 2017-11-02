@@ -19,9 +19,9 @@ extern bool half;
 
 // oscillator structure
 struct osc {
-  uint8_t  vol;
-  uint16_t phase_increment;
-  uint16_t phase_accumulator;
+	uint8_t  vol;
+	uint16_t phase_increment;
+	uint16_t phase_accumulator;
 };
 
 extern struct osc osc[4];

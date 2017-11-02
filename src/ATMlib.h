@@ -5,21 +5,21 @@
 
 class ATMsynth {
 
-  public:
-    ATMsynth() {};
+public:
+	ATMsynth() {};
 
-    // Load and play specified song
-    void play(const uint8_t *song);
+	// Load and play specified song
+	void play(const uint8_t *song);
 
-    // Play or Pause playback
-    void playPause();
+	// Play or Pause playback
+	void playPause();
 
-    // Stop playback (unloads song)
-    void stop();
+	// Stop playback (unloads song)
+	void stop();
 
-    void muteChannel(uint8_t ch);
+	void muteChannel(uint8_t ch);
 
-    void unMuteChannel(uint8_t ch);
+	void unMuteChannel(uint8_t ch);
 };
 
 #endif
