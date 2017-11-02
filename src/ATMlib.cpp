@@ -24,7 +24,7 @@ byte ChannelActiveMute = 0b11110000;
 extern uint16_t cia;
 
 // Exports
-osc_t osc[4];
+struct osc osc[4];
 
 
 const word noteTable[64] PROGMEM = {

@@ -37,15 +37,13 @@ class ATMsynth {
 
 
 // oscillator structure
-typedef struct {
+struct osc {
   uint8_t  vol;
   uint16_t phase_increment;
   uint16_t phase_accumulator;
-} osc_t;
+};
 
-typedef osc_t Oscillator;
-
-extern osc_t osc[4];
+extern struct osc osc[4];
 
 
 uint16_t read_vle(const byte **pp);
@@ -203,10 +201,10 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "reti                                             " "\n\t" \
                 : \
                 : [reg] "M" _SFR_MEM_ADDR(TARGET_REGISTER), \
-                [mul] "M" (sizeof(Oscillator)), \
-                [pha] "M" (offsetof(Oscillator, phase_accumulator)), \
-                [phi] "M" (offsetof(Oscillator, phase_increment)), \
-                [vol] "M" (offsetof(Oscillator, vol)) \
+                [mul] "M" (sizeof(struct osc)), \
+                [pha] "M" (offsetof(struct osc, phase_accumulator)), \
+                [phi] "M" (offsetof(struct osc, phase_increment)), \
+                [vol] "M" (offsetof(struct osc, vol)) \
               ); \
 }
 
