@@ -219,7 +219,11 @@ void ATM_playroutine() {
 						}
 					}
 				}
-				(ch->volFreConfig & 0x40) ? ch->phase_increment = vf : ch->vol = vf;
+				if (ch->volFreConfig & 0x40) {
+					ch->phase_increment = vf;
+				} else {
+					ch->vol = vf;
+				}
 			}
 			if (ch->volFreCount++ >= (ch->volFreConfig & 0x3F)) {
 				ch->volFreCount = 0;
@@ -268,7 +272,11 @@ void ATM_playroutine() {
 					vt = 63;
 				}
 			}
-			(ch->treviConfig & 0x40) ? ch->phase_increment = vt : ch->vol = vt;
+			if (ch->treviConfig & 0x40) {
+				ch->phase_increment = vt;
+			} else {
+				ch->vol = vt;
+			}
 			if ((ch->treviCount & 0x1F) < (ch->treviConfig & 0x1F)) {
 				ch->treviCount++;
 			} else {
