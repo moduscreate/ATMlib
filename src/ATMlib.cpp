@@ -32,7 +32,6 @@ const uint16_t noteTable[64] PROGMEM = {
 	8372, 8870, 9397,
 };
 
-
 struct channel_state {
 	const uint8_t *ptr;
 	uint8_t note;
@@ -165,39 +164,42 @@ void ATMsynth::unMuteChannel(uint8_t ch) {
 	ChannelActiveMute &= (~(1 << ch));
 }
 
-
 __attribute__((used))
 void ATM_playroutine() {
-	struct channel_state *ch;
-
 	// for every channel start working
 	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++)
 	{
-		ch = &channels[n];
+		struct channel_state *ch = &channels[n];
 
 		// Noise retriggering
 		if (ch->reConfig) {
 			if (ch->reCount >= (ch->reConfig & 0x03)) {
 				osc[n].phase_increment = pgm_read_word(&noteTable[ch->reConfig >> 2]);
 				ch->reCount = 0;
+			} else {
+				ch->reCount++;
 			}
-			else ch->reCount++;
 		}
-
 
 		//Apply Glissando
 		if (ch->glisConfig) {
 			if (ch->glisCount >= (ch->glisConfig & 0x7F)) {
-				if (ch->glisConfig & 0x80) ch->note -= 1;
-				else ch->note += 1;
-				if (ch->note < 1) ch->note = 1;
-				else if (ch->note > 63) ch->note = 63;
+				if (ch->glisConfig & 0x80) {
+					ch->note -= 1;
+				} else {
+					ch->note += 1;
+				}
+				if (ch->note < 1) {
+					ch->note = 1;
+				} else if (ch->note > 63) {
+					ch->note = 63;
+				}
 				ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
 				ch->glisCount = 0;
+			} else {
+				ch->glisCount++;
 			}
-			else ch->glisCount++;
 		}
-
 
 		// Apply volume/frequency slides
 		if (ch->volFreSlide) {
@@ -205,64 +207,99 @@ void ATM_playroutine() {
 				int16_t vf = ((ch->volFreConfig & 0x40) ? ch->phase_increment : ch->vol);
 				vf += (ch->volFreSlide);
 				if (!(ch->volFreConfig & 0x80)) {
-					if (vf < 0) vf = 0;
-					else if (ch->volFreConfig & 0x40) if (vf > 9397) vf = 9397;
-						else if (!(ch->volFreConfig & 0x40)) if (vf > 63) vf = 63;
+					if (vf < 0) {
+						vf = 0;
+					} else if (ch->volFreConfig & 0x40) {
+						if (vf > 9397) {
+							vf = 9397;
+						}
+					} else if (!(ch->volFreConfig & 0x40)) {
+						if (vf > 63) {
+							vf = 63;
+						}
+					}
 				}
 				(ch->volFreConfig & 0x40) ? ch->phase_increment = vf : ch->vol = vf;
 			}
-			if (ch->volFreCount++ >= (ch->volFreConfig & 0x3F)) ch->volFreCount = 0;
-		}
-
-
-		// Apply Arpeggio or Note Cut
-		if (ch->arpNotes && ch->note) {
-			if ((ch->arpCount & 0x1F) < (ch->arpTiming & 0x1F)) ch->arpCount++;
-			else {
-				if ((ch->arpCount & 0xE0) == 0x00) ch->arpCount = 0x20;
-				else if ((ch->arpCount & 0xE0) == 0x20 && !(ch->arpTiming & 0x40) && (ch->arpNotes != 0xFF)) ch->arpCount = 0x40;
-				else ch->arpCount = 0x00;
-				uint8_t arpNote = ch->note;
-				if ((ch->arpCount & 0xE0) != 0x00) {
-					if (ch->arpNotes == 0xFF) arpNote = 0;
-					else arpNote += (ch->arpNotes >> 4);
-				}
-				if ((ch->arpCount & 0xE0) == 0x40) arpNote += (ch->arpNotes & 0x0F);
-				ch->phase_increment = pgm_read_word(&noteTable[arpNote + ch->transConfig]);
+			if (ch->volFreCount++ >= (ch->volFreConfig & 0x3F)) {
+				ch->volFreCount = 0;
 			}
 		}
 
+		// Apply Arpeggio or Note Cut
+		if (ch->arpNotes && ch->note) {
+			if ((ch->arpCount & 0x1F) < (ch->arpTiming & 0x1F)) {
+				ch->arpCount++;
+			} else {
+				if ((ch->arpCount & 0xE0) == 0x00) {
+					ch->arpCount = 0x20;
+				} else if ((ch->arpCount & 0xE0) == 0x20 && !(ch->arpTiming & 0x40) && (ch->arpNotes != 0xFF)) {
+					ch->arpCount = 0x40;
+				} else {
+					ch->arpCount = 0x00;
+				}
+				uint8_t arpNote = ch->note;
+				if ((ch->arpCount & 0xE0) != 0x00) {
+					if (ch->arpNotes == 0xFF) {
+						arpNote = 0;
+					} else {
+						arpNote += (ch->arpNotes >> 4);
+					}
+				}
+				if ((ch->arpCount & 0xE0) == 0x40) {
+					arpNote += (ch->arpNotes & 0x0F);
+				}
+				ch->phase_increment = pgm_read_word(&noteTable[arpNote + ch->transConfig]);
+			}
+		}
 
 		// Apply Tremolo or Vibrato
 		if (ch->treviDepth) {
 			int16_t vt = ((ch->treviConfig & 0x40) ? ch->phase_increment : ch->vol);
 			vt = (ch->treviCount & 0x80) ? (vt + ch->treviDepth) : (vt - ch->treviDepth);
-			if (vt < 0) vt = 0;
-			else if (ch->treviConfig & 0x40) if (vt > 9397) vt = 9397;
-				else if (!(ch->treviConfig & 0x40)) if (vt > 63) vt = 63;
+			if (vt < 0) {
+				vt = 0;
+			} else if (ch->treviConfig & 0x40) {
+				if (vt > 9397) {
+					vt = 9397;
+				}
+			} else if (!(ch->treviConfig & 0x40)) {
+				if (vt > 63) {
+					vt = 63;
+				}
+			}
 			(ch->treviConfig & 0x40) ? ch->phase_increment = vt : ch->vol = vt;
-			if ((ch->treviCount & 0x1F) < (ch->treviConfig & 0x1F)) ch->treviCount++;
-			else {
-				if (ch->treviCount & 0x80) ch->treviCount = 0;
-				else ch->treviCount = 0x80;
+			if ((ch->treviCount & 0x1F) < (ch->treviConfig & 0x1F)) {
+				ch->treviCount++;
+			} else {
+				if (ch->treviCount & 0x80) {
+					ch->treviCount = 0;
+				} else {
+					ch->treviCount = 0x80;
+				}
 			}
 		}
 
-
 		if (ch->delay) {
-			if (ch->delay != 0xFFFF) ch->delay--;
-		}
-		else {
+			if (ch->delay != 0xFFFF) {
+				ch->delay--;
+			}
+		} else {
 			do {
 				uint8_t cmd = pgm_read_byte(ch->ptr++);
 				if (cmd < 64) {
 					// 0 … 63 : NOTE ON/OFF
-					if (ch->note = cmd) ch->note += ch->transConfig;
+					if (ch->note = cmd) {
+						ch->note += ch->transConfig;
+					}
 					ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
-					if (!ch->volFreConfig) ch->vol = ch->reCount;
-					if (ch->arpTiming & 0x20) ch->arpCount = 0; // ARP retriggering
-				}
-				else if (cmd < 160) {
+					if (!ch->volFreConfig) {
+						ch->vol = ch->reCount;
+					}
+					if (ch->arpTiming & 0x20) {
+						ch->arpCount = 0; // ARP retriggering
+					}
+				} else if (cmd < 160) {
 					// 64 … 159 : SETUP FX
 					switch (cmd - 64) {
 						case 0: // Set volume
@@ -367,7 +404,9 @@ void ATM_playroutine() {
 					// 254 : RETURN
 					if (ch->counter > 0 || ch->stackIndex == 0) {
 						// Repeat track
-						if (ch->counter) ch->counter--;
+						if (ch->counter) {
+							ch->counter--;
+						}
 						ch->ptr = getTrackPointer(ch->track);
 						//asm volatile ("  jmp 0"); // reboot
 					} else {
@@ -389,7 +428,9 @@ void ATM_playroutine() {
 				}
 			} while (ch->delay == 0);
 
-			if (ch->delay != 0xFFFF) ch->delay--;
+			if (ch->delay != 0xFFFF) {
+				ch->delay--;
+			}
 		}
 
 		if (!(ChannelActiveMute & (1 << n))) {
@@ -404,19 +445,18 @@ void ATM_playroutine() {
 	}
 
 	// if all channels are inactive, stop playing or check for repeat
-	if (!(ChannelActiveMute & 0xF0))
-	{
+	if (!(ChannelActiveMute & 0xF0)) {
 		uint8_t repeatSong = 0;
-		for (uint8_t j = 0; j < ARRAY_SIZE(channels); j++) repeatSong += channels[j].repeatPoint;
+		for (uint8_t j = 0; j < ARRAY_SIZE(channels); j++) {
+			repeatSong += channels[j].repeatPoint;
+		}
 		if (repeatSong) {
 			for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
 				channels[k].ptr = getTrackPointer(channels[k].repeatPoint);
 				channels[k].delay = 0;
 			}
 			ChannelActiveMute = 0b11110000;
-		}
-		else
-		{
+		} else {
 			atmsynth_stop();
 		}
 	}
