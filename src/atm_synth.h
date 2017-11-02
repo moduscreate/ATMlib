@@ -1,15 +1,16 @@
 
 #include <stddef.h>
-#include <Arduino.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #define CH_ZERO             0
 #define CH_ONE              1
 #define CH_TWO              2
 #define CH_THREE            3
 
-extern byte trackCount;
-extern const word *trackList;
-extern const byte *trackBase;
+extern uint8_t trackCount;
+extern const uint16_t *trackList;
+extern const uint8_t *trackBase;
 extern uint8_t pcm;
 extern uint16_t cia_count;
 
@@ -26,4 +27,4 @@ extern struct osc osc[4];
 
 extern void ATM_playroutine() asm("ATM_playroutine");
 
-uint16_t read_vle(const byte **pp);
+uint16_t read_vle(const uint8_t **pp);
