@@ -3,10 +3,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define CH_ZERO             0
-#define CH_ONE              1
-#define CH_TWO              2
-#define CH_THREE            3
+enum channels_e {
+	CH_ZERO = 0,
+	CH_ONE,
+	CH_TWO,
+	CH_THREE,
+	CH_COUNT,
+};
 
 extern uint8_t trackCount;
 extern const uint16_t *trackList;
@@ -24,7 +27,7 @@ struct osc {
 	uint16_t phase_accumulator;
 };
 
-extern struct osc osc[4];
+extern struct osc osc[CH_COUNT];
 
 extern void ATM_playroutine() asm("ATM_playroutine");
 
