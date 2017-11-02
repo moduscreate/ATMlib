@@ -7,6 +7,8 @@ bool half __attribute__((used));
 uint16_t __attribute__((used)) cia;
 uint16_t __attribute__((used)) cia_count;
 
+struct osc osc[4];
+
 #define ATMLIB_CONSTRUCT_ISR(TARGET_REGISTER) \
 ISR(TIMER4_OVF_vect, ISR_NAKED) { \
   asm volatile( \
