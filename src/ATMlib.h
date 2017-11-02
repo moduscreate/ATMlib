@@ -39,8 +39,8 @@ class ATMsynth {
 // oscillator structure
 typedef struct {
   uint8_t  vol;
-  uint16_t freq;
-  uint16_t phase;
+  uint16_t phase_increment;
+  uint16_t phase_accumulator;
 } osc_t;
 
 typedef osc_t Oscillator;
@@ -77,11 +77,11 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "push r0                                          " "\n\t" \
                 "push r1                                          " "\n\t" \
                 \
-                "lds  r18,                   osc+2*%[mul]+%[fre]  " "\n\t" \
+                "lds  r18,                   osc+2*%[mul]+%[phi]  " "\n\t" \
                 "lds  r0,                    osc+2*%[mul]+%[pha]  " "\n\t" \
                 "add  r0,                    r18                  " "\n\t" \
                 "sts  osc+2*%[mul]+%[pha],   r0                   " "\n\t" \
-                "lds  r18,                   osc+2*%[mul]+%[fre]+1" "\n\t" \
+                "lds  r18,                   osc+2*%[mul]+%[phi]+1" "\n\t" \
                 "lds  r1,                    osc+2*%[mul]+%[pha]+1" "\n\t" \
                 "adc  r1,                    r18                  " "\n\t" \
                 "sts  osc+2*%[mul]+%[pha]+1, r1                   " "\n\t" \
@@ -96,11 +96,11 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "lsl  r1                                          " "\n\t" \
                 "mov  r26,                   r1                   " "\n\t" \
                 \
-                "lds  r18,                   osc+0*%[mul]+%[fre]  " "\n\t" \
+                "lds  r18,                   osc+0*%[mul]+%[phi]  " "\n\t" \
                 "lds  r0,                    osc+0*%[mul]+%[pha]  " "\n\t" \
                 "add  r0,                    r18                  " "\n\t" \
                 "sts  osc+0*%[mul]+%[pha],   r0                   " "\n\t" \
-                "lds  r18,                   osc+0*%[mul]+%[fre]+1" "\n\t" \
+                "lds  r18,                   osc+0*%[mul]+%[phi]+1" "\n\t" \
                 "lds  r1,                    osc+0*%[mul]+%[pha]+1" "\n\t" \
                 "adc  r1,                    r18                  " "\n\t" \
                 "sts  osc+0*%[mul]+%[pha]+1, r1                   " "\n\t" \
@@ -113,11 +113,11 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "neg  r27                                         " "\n\t" \
                 "add  r26,                   r27                  " "\n\t" \
                 \
-                "lds  r18,                   osc+1*%[mul]+%[fre]  " "\n\t" \
+                "lds  r18,                   osc+1*%[mul]+%[phi]  " "\n\t" \
                 "lds  r0,                    osc+1*%[mul]+%[pha]  " "\n\t" \
                 "add  r0,                    r18                  " "\n\t" \
                 "sts  osc+1*%[mul]+%[pha],   r0                   " "\n\t" \
-                "lds  r18,                   osc+1*%[mul]+%[fre]+1" "\n\t" \
+                "lds  r18,                   osc+1*%[mul]+%[phi]+1" "\n\t" \
                 "lds  r1,                    osc+1*%[mul]+%[pha]+1" "\n\t" \
                 "adc  r1,                    r18                  " "\n\t" \
                 "sts  osc+1*%[mul]+%[pha]+1, r1                   " "\n\t" \
@@ -128,16 +128,16 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "add  r26,                   r27                  " "\n\t" \
                 \
                 "ldi  r27,                   1                    " "\n\t" \
-                "lds  r0,                    osc+3*%[mul]+%[fre]  " "\n\t" \
-                "lds  r1,                    osc+3*%[mul]+%[fre]+1" "\n\t" \
+                "lds  r0,                    osc+3*%[mul]+%[phi]  " "\n\t" \
+                "lds  r1,                    osc+3*%[mul]+%[phi]+1" "\n\t" \
                 "add  r0,                    r0                   " "\n\t" \
                 "adc  r1,                    r1                   " "\n\t" \
                 "sbrc r1,                    7                    " "\n\t" \
                 "eor  r0,                    r27                  " "\n\t" \
                 "sbrc r1,                    6                    " "\n\t" \
                 "eor  r0,                    r27                  " "\n\t" \
-                "sts  osc+3*%[mul]+%[fre],   r0                   " "\n\t" \
-                "sts  osc+3*%[mul]+%[fre]+1, r1                   " "\n\t" \
+                "sts  osc+3*%[mul]+%[phi],   r0                   " "\n\t" \
+                "sts  osc+3*%[mul]+%[phi]+1, r1                   " "\n\t" \
                 \
                 "lds  r27,                   osc+3*%[mul]+%[vol]  " "\n\t" \
                 "sbrc r1,                    7                    " "\n\t" \
@@ -204,8 +204,8 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 : \
                 : [reg] "M" _SFR_MEM_ADDR(TARGET_REGISTER), \
                 [mul] "M" (sizeof(Oscillator)), \
-                [pha] "M" (offsetof(Oscillator, phase)), \
-                [fre] "M" (offsetof(Oscillator, freq)), \
+                [pha] "M" (offsetof(Oscillator, phase_accumulator)), \
+                [phi] "M" (offsetof(Oscillator, phase_increment)), \
                 [vol] "M" (offsetof(Oscillator, vol)) \
               ); \
 }

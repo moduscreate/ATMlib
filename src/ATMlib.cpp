@@ -55,7 +55,7 @@ struct ch_t {
   byte track;
 
   // External FX
-  word freq;
+  word phase_increment;
   byte vol;
 
   // Volume & Frequency slide FX
@@ -126,8 +126,8 @@ void ATMsynth::play(const byte *song) {
   cia = 15625 / tickRate;
   cia_count = cia;
   // Sets up the ports, and the sample grinding ISR
-  osc[3].freq = 0x0001; // Seed LFSR
-  channel[3].freq = 0x0001; // xFX
+  osc[3].phase_increment = 0x0001; // Seed LFSR
+  channel[3].phase_increment = 0x0001; // xFX
 
   TCCR4A = 0b01000010;    // Fast-PWM 8-bit
   TCCR4B = 0b00000001;    // 62500Hz
@@ -183,7 +183,7 @@ void ATM_playroutine() {
     // Noise retriggering
     if (ch->reConfig) {
       if (ch->reCount >= (ch->reConfig & 0x03)) {
-        osc[n].freq = pgm_read_word(&noteTable[ch->reConfig >> 2]);
+        osc[n].phase_increment = pgm_read_word(&noteTable[ch->reConfig >> 2]);
         ch->reCount = 0;
       }
       else ch->reCount++;
@@ -197,7 +197,7 @@ void ATM_playroutine() {
         else ch->note += 1;
         if (ch->note < 1) ch->note = 1;
         else if (ch->note > 63) ch->note = 63;
-        ch->freq = pgm_read_word(&noteTable[ch->note]);
+        ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
         ch->glisCount = 0;
       }
       else ch->glisCount++;
@@ -207,14 +207,14 @@ void ATM_playroutine() {
     // Apply volume/frequency slides
     if (ch->volFreSlide) {
       if (!ch->volFreCount) {
-        int16_t vf = ((ch->volFreConfig & 0x40) ? ch->freq : ch->vol);
+        int16_t vf = ((ch->volFreConfig & 0x40) ? ch->phase_increment : ch->vol);
         vf += (ch->volFreSlide);
         if (!(ch->volFreConfig & 0x80)) {
           if (vf < 0) vf = 0;
           else if (ch->volFreConfig & 0x40) if (vf > 9397) vf = 9397;
             else if (!(ch->volFreConfig & 0x40)) if (vf > 63) vf = 63;
         }
-        (ch->volFreConfig & 0x40) ? ch->freq = vf : ch->vol = vf;
+        (ch->volFreConfig & 0x40) ? ch->phase_increment = vf : ch->vol = vf;
       }
       if (ch->volFreCount++ >= (ch->volFreConfig & 0x3F)) ch->volFreCount = 0;
     }
@@ -233,19 +233,19 @@ void ATM_playroutine() {
           else arpNote += (ch->arpNotes >> 4);
         }
         if ((ch->arpCount & 0xE0) == 0x40) arpNote += (ch->arpNotes & 0x0F);
-        ch->freq = pgm_read_word(&noteTable[arpNote + ch->transConfig]);
+        ch->phase_increment = pgm_read_word(&noteTable[arpNote + ch->transConfig]);
       }
     }
 
 
     // Apply Tremolo or Vibrato
     if (ch->treviDepth) {
-      int16_t vt = ((ch->treviConfig & 0x40) ? ch->freq : ch->vol);
+      int16_t vt = ((ch->treviConfig & 0x40) ? ch->phase_increment : ch->vol);
       vt = (ch->treviCount & 0x80) ? (vt + ch->treviDepth) : (vt - ch->treviDepth);
       if (vt < 0) vt = 0;
       else if (ch->treviConfig & 0x40) if (vt > 9397) vt = 9397;
         else if (!(ch->treviConfig & 0x40)) if (vt > 63) vt = 63;
-      (ch->treviConfig & 0x40) ? ch->freq = vt : ch->vol = vt;
+      (ch->treviConfig & 0x40) ? ch->phase_increment = vt : ch->vol = vt;
       if ((ch->treviCount & 0x1F) < (ch->treviConfig & 0x1F)) ch->treviCount++;
       else {
         if (ch->treviCount & 0x80) ch->treviCount = 0;
@@ -263,7 +263,7 @@ void ATM_playroutine() {
         if (cmd < 64) {
           // 0 … 63 : NOTE ON/OFF
           if (ch->note = cmd) ch->note += ch->transConfig;
-          ch->freq = pgm_read_word(&noteTable[ch->note]);
+          ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
           if (!ch->volFreConfig) ch->vol = ch->reCount;
           if (ch->arpTiming & 0x20) ch->arpCount = 0; // ARP retriggering
         }
@@ -402,7 +402,7 @@ void ATM_playroutine() {
         // Half volume, no frequency for noise channel
         osc[n].vol = ch->vol >> 1;
       } else {
-        osc[n].freq = ch->freq;
+        osc[n].phase_increment = ch->phase_increment;
         osc[n].vol = ch->vol;
       }
     }
