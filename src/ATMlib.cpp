@@ -79,7 +79,7 @@ struct channel_state {
 
 };
 
-struct channel_state channels[4];
+struct channel_state channels[CH_COUNT];
 
 uint16_t read_vle(const uint8_t **pp) {
 	uint16_t q = 0;
@@ -102,7 +102,7 @@ static void atmsynth_stop(void) {
 	memset(osc, 0, sizeof(osc));
 	memset(channels, 0, sizeof(channels));
 	/* mark the channel as stopped */
-	for (uint8_t n = 0; n < 4; n++) {
+	for (uint8_t n = 0; n < CH_COUNT; n++) {
 		channels[n].delay = 0xFFFF;
 	}
 	ChannelActiveMute = 0b11110000;
@@ -119,8 +119,8 @@ void ATMsynth::play(const uint8_t *song) {
 	cia = 15625 / tickRate;
 	cia_count = cia;
 	// Sets up the ports, and the sample grinding ISR
-	osc[3].phase_increment = 0x0001; // Seed LFSR
-	channels[3].phase_increment = 0x0001; // xFX
+	osc[CH_THREE].phase_increment = 0x0001; // Seed LFSR
+	channels[CH_THREE].phase_increment = 0x0001; // xFX
 
 	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
 	TCCR4B = 0b00000001;    // 62500Hz
@@ -135,9 +135,9 @@ void ATMsynth::play(const uint8_t *song) {
 	// Store track list pointer
 	trackList = (uint16_t*)song;
 	// Store track pointer
-	trackBase = (song += (trackCount << 1)) + 4;
+	trackBase = (song += (trackCount << 1)) + CH_COUNT;
 	// Fetch starting points for each track
-	for (unsigned n = 0; n < 4; n++) {
+	for (unsigned n = 0; n < CH_COUNT; n++) {
 		channels[n].ptr = getTrackPointer(pgm_read_byte(song++));
 		channels[n].delay = 0;
 	}
@@ -169,7 +169,7 @@ void ATM_playroutine() {
 	struct channel_state *ch;
 
 	// for every channel start working
-	for (uint8_t n = 0; n < 4; n++)
+	for (uint8_t n = 0; n < CH_COUNT; n++)
 	{
 		ch = &channels[n];
 
@@ -329,10 +329,10 @@ void ATM_playroutine() {
 							cia = 15625 / tickRate;
 							break;
 						case 94: // Goto advanced
-							for (uint8_t i = 0; i < 4; i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
+							for (uint8_t i = 0; i < CH_COUNT; i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
 							break;
 						case 95: // Stop channel
-							ChannelActiveMute = ChannelActiveMute ^ (1 << (n + 4));
+							ChannelActiveMute = ChannelActiveMute ^ (1 << (n + CH_COUNT));
 							ch->vol = 0;
 							ch->delay = 0xFFFF;
 							break;
@@ -391,7 +391,7 @@ void ATM_playroutine() {
 		}
 
 		if (!(ChannelActiveMute & (1 << n))) {
-			if (n == 3) {
+			if (n == CH_THREE) {
 				// Half volume, no frequency for noise channel
 				osc[n].vol = ch->vol >> 1;
 			} else {
@@ -405,9 +405,9 @@ void ATM_playroutine() {
 	if (!(ChannelActiveMute & 0xF0))
 	{
 		uint8_t repeatSong = 0;
-		for (uint8_t j = 0; j < 4; j++) repeatSong += channels[j].repeatPoint;
+		for (uint8_t j = 0; j < CH_COUNT; j++) repeatSong += channels[j].repeatPoint;
 		if (repeatSong) {
-			for (uint8_t k = 0; k < 4; k++) {
+			for (uint8_t k = 0; k < CH_COUNT; k++) {
 				channels[k].ptr = getTrackPointer(channels[k].repeatPoint);
 				channels[k].delay = 0;
 			}
