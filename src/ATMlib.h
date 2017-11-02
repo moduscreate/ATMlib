@@ -9,7 +9,7 @@ class ATMsynth {
     ATMsynth() {};
 
     // Load and play specified song
-    void play(const byte *song);
+    void play(const uint8_t *song);
 
     // Play or Pause playback
     void playPause();
@@ -17,9 +17,9 @@ class ATMsynth {
     // Stop playback (unloads song)
     void stop();
 
-    void muteChannel(byte ch);
+    void muteChannel(uint8_t ch);
 
-    void unMuteChannel(byte ch);
+    void unMuteChannel(uint8_t ch);
 };
 
 #endif

@@ -1,20 +1,24 @@
+
+#include <string.h>
+#include <avr/pgmspace.h>
+
 #include "ATMlib.h"
 
-byte trackCount;
-byte tickRate;
-const word *trackList;
-const byte *trackBase;
+uint8_t trackCount;
+uint8_t tickRate;
+const uint16_t *trackList;
+const uint8_t *trackBase;
 
-byte ChannelActiveMute = 0b11110000;
-//                         ||||||||
-//                         |||||||└->  0  channel 0 is muted (0 = false / 1 = true)
-//                         ||||||└-->  1  channel 1 is muted (0 = false / 1 = true)
-//                         |||||└--->  2  channel 2 is muted (0 = false / 1 = true)
-//                         ||||└---->  3  channel 3 is muted (0 = false / 1 = true)
-//                         |||└----->  4  channel 0 is Active (0 = false / 1 = true)
-//                         ||└------>  5  channel 1 is Active (0 = false / 1 = true)
-//                         |└------->  6  channel 2 is Active (0 = false / 1 = true)
-//                         └-------->  7  channel 3 is Active (0 = false / 1 = true)
+uint8_t ChannelActiveMute = 0b11110000;
+//                            ||||||||
+//                            |||||||└->  0  channel 0 is muted (0 = false / 1 = true)
+//                            ||||||└-->  1  channel 1 is muted (0 = false / 1 = true)
+//                            |||||└--->  2  channel 2 is muted (0 = false / 1 = true)
+//                            ||||└---->  3  channel 3 is muted (0 = false / 1 = true)
+//                            |||└----->  4  channel 0 is Active (0 = false / 1 = true)
+//                            ||└------>  5  channel 1 is Active (0 = false / 1 = true)
+//                            |└------->  6  channel 2 is Active (0 = false / 1 = true)
+//                            └-------->  7  channel 3 is Active (0 = false / 1 = true)
 
 //Imports
 extern uint16_t cia;
@@ -23,7 +27,7 @@ extern uint16_t cia;
 struct osc osc[4];
 
 
-const word noteTable[64] PROGMEM = {
+const uint16_t noteTable[64] PROGMEM = {
   0,
   262,  277,  294,  311,  330,  349,  370,  392,  415,  440,  466,  494,
   523,  554,  587,  622,  659,  698,  740,  784,  831,  880,  932,  988,
@@ -35,58 +39,58 @@ const word noteTable[64] PROGMEM = {
 
 
 struct channel_state {
-  const byte *ptr;
-  byte note;
+  const uint8_t *ptr;
+  uint8_t note;
 
   // Nesting
-  word stackPointer[7];
-  byte stackCounter[7];
-  byte stackTrack[7]; // note 1
-  byte stackIndex;
-  byte repeatPoint;
+  uint16_t stackPointer[7];
+  uint8_t stackCounter[7];
+  uint8_t stackTrack[7]; // note 1
+  uint8_t stackIndex;
+  uint8_t repeatPoint;
 
   // Looping
-  word delay;
-  byte counter;
-  byte track;
+  uint16_t delay;
+  uint8_t counter;
+  uint8_t track;
 
   // External FX
-  word phase_increment;
-  byte vol;
+  uint16_t phase_increment;
+  uint8_t vol;
 
   // Volume & Frequency slide FX
   char volFreSlide;
-  byte volFreConfig;
-  byte volFreCount;
+  uint8_t volFreConfig;
+  uint8_t volFreCount;
 
   // Arpeggio or Note Cut FX
-  byte arpNotes;       // notes: base, base+[7:4], base+[7:4]+[3:0], if FF => note cut ON
-  byte arpTiming;      // [7] = reserved, [6] = not third note ,[5] = retrigger, [4:0] = tick count
-  byte arpCount;
+  uint8_t arpNotes;       // notes: base, base+[7:4], base+[7:4]+[3:0], if FF => note cut ON
+  uint8_t arpTiming;      // [7] = reserved, [6] = not third note ,[5] = retrigger, [4:0] = tick count
+  uint8_t arpCount;
 
   // Retrig FX
-  byte reConfig;       // [7:2] = , [1:0] = speed // used for the noise channel
-  byte reCount;        // also using this as a buffer for volume retrig on all channels
+  uint8_t reConfig;       // [7:2] = , [1:0] = speed // used for the noise channel
+  uint8_t reCount;        // also using this as a buffer for volume retrig on all channels
 
   // Transposition FX
   char transConfig;
 
   // Tremolo or Vibrato FX
-  byte treviDepth;
-  byte treviConfig;
-  byte treviCount;
+  uint8_t treviDepth;
+  uint8_t treviConfig;
+  uint8_t treviCount;
 
   // Glissando FX
   char glisConfig;
-  byte glisCount;
+  uint8_t glisCount;
 
 };
 
 struct channel_state channels[4];
 
-uint16_t read_vle(const byte **pp) {
-  word q = 0;
-  byte d;
+uint16_t read_vle(const uint8_t **pp) {
+  uint16_t q = 0;
+  uint8_t d;
   do {
     q <<= 7;
     d = pgm_read_byte(*pp++);
@@ -95,7 +99,7 @@ uint16_t read_vle(const byte **pp) {
   return q;
 }
 
-static inline const byte *getTrackPointer(byte track) {
+static inline const uint8_t *getTrackPointer(uint8_t track) {
   return trackBase + pgm_read_word(&trackList[track]);
 }
 
@@ -105,13 +109,13 @@ static void atmsynth_stop(void) {
   memset(osc, 0, sizeof(osc));
   memset(channels, 0, sizeof(channels));
   /* mark the channel as stopped */
-  for (byte n = 0; n < 4; n++) {
+  for (uint8_t n = 0; n < 4; n++) {
     channels[n].delay = 0xFFFF;
   }
   ChannelActiveMute = 0b11110000;
 }
 
-void ATMsynth::play(const byte *song) {
+void ATMsynth::play(const uint8_t *song) {
 
   // cleanUp stuff first
   atmsynth_stop();
@@ -136,7 +140,7 @@ void ATMsynth::play(const byte *song) {
   // Read track count
   trackCount = pgm_read_byte(song++);
   // Store track list pointer
-  trackList = (word*)song;
+  trackList = (uint16_t*)song;
   // Store track pointer
   trackBase = (song += (trackCount << 1)) + 4;
   // Fetch starting points for each track
@@ -158,11 +162,11 @@ void ATMsynth::playPause() {
 
 // Toggle mute on/off on a channel, so it can be used for sound effects
 // So you have to call it before and after the sound effect
-void ATMsynth::muteChannel(byte ch) {
+void ATMsynth::muteChannel(uint8_t ch) {
   ChannelActiveMute += (1 << ch);
 }
 
-void ATMsynth::unMuteChannel(byte ch) {
+void ATMsynth::unMuteChannel(uint8_t ch) {
   ChannelActiveMute &= (~(1 << ch));
 }
 
@@ -172,7 +176,7 @@ void ATM_playroutine() {
   struct channel_state *ch;
 
   // for every channel start working
-  for (byte n = 0; n < 4; n++)
+  for (uint8_t n = 0; n < 4; n++)
   {
     ch = &channels[n];
 
@@ -223,7 +227,7 @@ void ATM_playroutine() {
         if ((ch->arpCount & 0xE0) == 0x00) ch->arpCount = 0x20;
         else if ((ch->arpCount & 0xE0) == 0x20 && !(ch->arpTiming & 0x40) && (ch->arpNotes != 0xFF)) ch->arpCount = 0x40;
         else ch->arpCount = 0x00;
-        byte arpNote = ch->note;
+        uint8_t arpNote = ch->note;
         if ((ch->arpCount & 0xE0) != 0x00) {
           if (ch->arpNotes == 0xFF) arpNote = 0;
           else arpNote += (ch->arpNotes >> 4);
@@ -255,7 +259,7 @@ void ATM_playroutine() {
     }
     else {
       do {
-        byte cmd = pgm_read_byte(ch->ptr++);
+        uint8_t cmd = pgm_read_byte(ch->ptr++);
         if (cmd < 64) {
           // 0 … 63 : NOTE ON/OFF
           if (ch->note = cmd) ch->note += ch->transConfig;
@@ -332,7 +336,7 @@ void ATM_playroutine() {
               cia = 15625 / tickRate;
               break;
             case 94: // Goto advanced
-              for (byte i = 0; i < 4; i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
+              for (uint8_t i = 0; i < 4; i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
               break;
             case 95: // Stop channel
               ChannelActiveMute = ChannelActiveMute ^ (1 << (n + 4));
@@ -350,8 +354,8 @@ void ATM_playroutine() {
           // 225 … 251 : RESERVED
         } else if (cmd == 252 || cmd == 253) {
           // 252 (253) : CALL (REPEATEDLY)
-          byte new_counter = cmd == 252 ? 0 : pgm_read_byte(ch->ptr++);
-          byte new_track = pgm_read_byte(ch->ptr++);
+          uint8_t new_counter = cmd == 252 ? 0 : pgm_read_byte(ch->ptr++);
+          uint8_t new_track = pgm_read_byte(ch->ptr++);
 
           if (new_track != ch->track) {
             // Stack PUSH
@@ -407,10 +411,10 @@ void ATM_playroutine() {
   // if all channels are inactive, stop playing or check for repeat
   if (!(ChannelActiveMute & 0xF0))
   {
-    byte repeatSong = 0;
-    for (byte j = 0; j < 4; j++) repeatSong += channels[j].repeatPoint;
+    uint8_t repeatSong = 0;
+    for (uint8_t j = 0; j < 4; j++) repeatSong += channels[j].repeatPoint;
     if (repeatSong) {
-      for (byte k = 0; k < 4; k++) {
+      for (uint8_t k = 0; k < 4; k++) {
         channels[k].ptr = getTrackPointer(channels[k].repeatPoint);
         channels[k].delay = 0;
       }
