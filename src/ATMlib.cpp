@@ -4,6 +4,8 @@
 
 #include "ATMlib.h"
 
+#define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
+
 uint8_t trackCount;
 uint8_t tickRate;
 const uint16_t *trackList;
@@ -102,7 +104,7 @@ static void atmsynth_stop(void) {
 	memset(osc, 0, sizeof(osc));
 	memset(channels, 0, sizeof(channels));
 	/* mark the channel as stopped */
-	for (uint8_t n = 0; n < CH_COUNT; n++) {
+	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++) {
 		channels[n].delay = 0xFFFF;
 	}
 	ChannelActiveMute = 0b11110000;
@@ -137,7 +139,7 @@ void ATMsynth::play(const uint8_t *song) {
 	// Store track pointer
 	trackBase = (song += (trackCount << 1)) + CH_COUNT;
 	// Fetch starting points for each track
-	for (unsigned n = 0; n < CH_COUNT; n++) {
+	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
 		channels[n].ptr = getTrackPointer(pgm_read_byte(song++));
 		channels[n].delay = 0;
 	}
@@ -169,7 +171,7 @@ void ATM_playroutine() {
 	struct channel_state *ch;
 
 	// for every channel start working
-	for (uint8_t n = 0; n < CH_COUNT; n++)
+	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++)
 	{
 		ch = &channels[n];
 
@@ -329,7 +331,7 @@ void ATM_playroutine() {
 							cia = 15625 / tickRate;
 							break;
 						case 94: // Goto advanced
-							for (uint8_t i = 0; i < CH_COUNT; i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
+							for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
 							break;
 						case 95: // Stop channel
 							ChannelActiveMute = ChannelActiveMute ^ (1 << (n + CH_COUNT));
@@ -405,9 +407,9 @@ void ATM_playroutine() {
 	if (!(ChannelActiveMute & 0xF0))
 	{
 		uint8_t repeatSong = 0;
-		for (uint8_t j = 0; j < CH_COUNT; j++) repeatSong += channels[j].repeatPoint;
+		for (uint8_t j = 0; j < ARRAY_SIZE(channels); j++) repeatSong += channels[j].repeatPoint;
 		if (repeatSong) {
-			for (uint8_t k = 0; k < CH_COUNT; k++) {
+			for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
 				channels[k].ptr = getTrackPointer(channels[k].repeatPoint);
 				channels[k].delay = 0;
 			}
