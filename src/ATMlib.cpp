@@ -38,7 +38,7 @@ const word noteTable[64] PROGMEM = {
 };
 
 
-struct ch_t {
+struct channel_state {
   const byte *ptr;
   byte note;
 
@@ -86,7 +86,7 @@ struct ch_t {
 
 };
 
-ch_t channel[4];
+struct channel_state channels[4];
 
 uint16_t read_vle(const byte **pp) {
   word q = 0;
@@ -107,10 +107,10 @@ static inline const byte *getTrackPointer(byte track) {
 static void atmsynth_stop(void) {
   TIMSK4 = 0; // Disable interrupt
   memset(osc, 0, sizeof(osc));
-  memset(channel, 0, sizeof(channel));
+  memset(channels, 0, sizeof(channels));
   /* mark the channel as stopped */
   for (byte n = 0; n < 4; n++) {
-    channel[n].delay = 0xFFFF;
+    channels[n].delay = 0xFFFF;
   }
   ChannelActiveMute = 0b11110000;
 }
@@ -127,7 +127,7 @@ void ATMsynth::play(const byte *song) {
   cia_count = cia;
   // Sets up the ports, and the sample grinding ISR
   osc[3].phase_increment = 0x0001; // Seed LFSR
-  channel[3].phase_increment = 0x0001; // xFX
+  channels[3].phase_increment = 0x0001; // xFX
 
   TCCR4A = 0b01000010;    // Fast-PWM 8-bit
   TCCR4B = 0b00000001;    // 62500Hz
@@ -145,8 +145,8 @@ void ATMsynth::play(const byte *song) {
   trackBase = (song += (trackCount << 1)) + 4;
   // Fetch starting points for each track
   for (unsigned n = 0; n < 4; n++) {
-    channel[n].ptr = getTrackPointer(pgm_read_byte(song++));
-    channel[n].delay = 0;
+    channels[n].ptr = getTrackPointer(pgm_read_byte(song++));
+    channels[n].delay = 0;
   }
 }
 
@@ -173,12 +173,12 @@ void ATMsynth::unMuteChannel(byte ch) {
 
 __attribute__((used))
 void ATM_playroutine() {
-  ch_t *ch;
+  struct channel_state *ch;
 
   // for every channel start working
   for (byte n = 0; n < 4; n++)
   {
-    ch = &channel[n];
+    ch = &channels[n];
 
     // Noise retriggering
     if (ch->reConfig) {
@@ -336,7 +336,7 @@ void ATM_playroutine() {
               cia = 15625 / tickRate;
               break;
             case 94: // Goto advanced
-              for (byte i = 0; i < 4; i++) channel[i].repeatPoint = pgm_read_byte(ch->ptr++);
+              for (byte i = 0; i < 4; i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
               break;
             case 95: // Stop channel
               ChannelActiveMute = ChannelActiveMute ^ (1 << (n + 4));
@@ -412,11 +412,11 @@ void ATM_playroutine() {
   if (!(ChannelActiveMute & 0xF0))
   {
     byte repeatSong = 0;
-    for (byte j = 0; j < 4; j++) repeatSong += channel[j].repeatPoint;
+    for (byte j = 0; j < 4; j++) repeatSong += channels[j].repeatPoint;
     if (repeatSong) {
       for (byte k = 0; k < 4; k++) {
-        channel[k].ptr = getTrackPointer(channel[k].repeatPoint);
-        channel[k].delay = 0;
+        channels[k].ptr = getTrackPointer(channels[k].repeatPoint);
+        channels[k].delay = 0;
       }
       ChannelActiveMute = 0b11110000;
     }
