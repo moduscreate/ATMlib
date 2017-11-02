@@ -1,13 +1,9 @@
 #include "ATMlib.h"
 
-ATMLIB_CONSTRUCT_ISR(OCR4A)
-
 byte trackCount;
 byte tickRate;
 const word *trackList;
 const byte *trackBase;
-uint8_t pcm __attribute__((used)) = 128;
-bool half __attribute__((used));
 
 byte ChannelActiveMute = 0b11110000;
 //                         ||||||||
