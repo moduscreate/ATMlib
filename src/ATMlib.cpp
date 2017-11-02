@@ -306,15 +306,18 @@ void ATM_playroutine() {
 							ch->vol = pgm_read_byte(ch->ptr++);
 							ch->reCount = ch->vol;
 							break;
-						case 1: case 4: // Slide volume/frequency ON
+						case 1:
+						case 4: // Slide volume/frequency ON
 							ch->volFreSlide = pgm_read_byte(ch->ptr++);
 							ch->volFreConfig = (cmd - 64) == 1 ? 0x00 : 0x40;
 							break;
-						case 2: case 5: // Slide volume/frequency ON advanced
+						case 2:
+						case 5: // Slide volume/frequency ON advanced
 							ch->volFreSlide = pgm_read_byte(ch->ptr++);
 							ch->volFreConfig = pgm_read_byte(ch->ptr++);
 							break;
-						case 3: case 6: // Slide volume/frequency OFF (same as 0x01 0x00)
+						case 3:
+						case 6: // Slide volume/frequency OFF (same as 0x01 0x00)
 							ch->volFreSlide = 0;
 							break;
 						case 7: // Set Arpeggio
@@ -339,11 +342,13 @@ void ATM_playroutine() {
 						case 13: // Transposition OFF
 							ch->transConfig = 0;
 							break;
-						case 14: case 16: // SET Tremolo/Vibrato
+						case 14:
+						case 16: // SET Tremolo/Vibrato
 							ch->treviDepth = pgm_read_word(ch->ptr++);
 							ch->treviConfig = pgm_read_word(ch->ptr++) + ((cmd - 64) == 14 ? 0x00 : 0x40);
 							break;
-						case 15: case 17: // Tremolo/Vibrato OFF
+						case 15:
+						case 17: // Tremolo/Vibrato OFF
 							ch->treviDepth = 0;
 							break;
 						case 18: // Glissando
