@@ -236,6 +236,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 19: // Glissando OFF
 				ch->glisConfig = 0;
+				ch->glisCount = 0;
 				break;
 			case 20: // SET Note Cut
 				ch->arpNotes = 0xFF;                        // 0xFF use Note Cut
