@@ -328,23 +328,14 @@ void ATM_playroutine() {
 		}
 
 		//Apply Glissando
-		if (ch->glisConfig) {
-			if (ch->glisCount >= (ch->glisConfig & 0x7F)) {
-				if (ch->glisConfig & 0x80) {
-					ch->note -= 1;
-				} else {
-					ch->note += 1;
-				}
-				if (ch->note < 1) {
-					ch->note = 1;
-				} else if (ch->note > 63) {
-					ch->note = 63;
-				}
-				ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
-				ch->glisCount = 0;
-			} else {
-				ch->glisCount++;
-			}
+		if (ch->glisConfig && (ch->glisCount++ >= (ch->glisConfig & 0x7F))) {
+			const uint8_t n0 = ch->note + ((ch->glisConfig & 0x80) ? -1 : 1);
+			// clamp note between 1 and 63
+			const uint8_t n1 = !n0 ? 1 : n0;
+			const uint8_t n2 = n1 > 63 ? 63 : n1;
+			ch->note = n2;
+			ch->phase_increment = pgm_read_word(&noteTable[n2]);
+			ch->glisCount = 0;
 		}
 
 		// Apply volume/frequency slides
