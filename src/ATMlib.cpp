@@ -322,13 +322,9 @@ void ATM_playroutine() {
 		struct channel_state *ch = &channels[n];
 
 		// Noise retriggering
-		if (ch->reConfig) {
-			if (ch->reCount >= (ch->reConfig & 0x03)) {
-				osc[n].phase_increment = pgm_read_word(&noteTable[ch->reConfig >> 2]);
-				ch->reCount = 0;
-			} else {
-				ch->reCount++;
-			}
+		if (ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
+			osc[n].phase_increment = pgm_read_word(&noteTable[ch->reConfig >> 2]);
+			ch->reCount = 0;
 		}
 
 		//Apply Glissando
