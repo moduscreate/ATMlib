@@ -188,7 +188,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			case 1:
 			case 4: // Slide volume/frequency ON
 				ch->volFreSlide = pgm_read_byte(ch->ptr++);
-				ch->volFreConfig = (cmd - 64) == 1 ? 0x00 : 0x40;
+				ch->volFreConfig = (cmd == 65) ? 0x00 : 0x40;
 				break;
 			case 2:
 			case 5: // Slide volume/frequency ON advanced
@@ -225,7 +225,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			case 14:
 			case 16: // SET Tremolo/Vibrato
 				ch->treviDepth = pgm_read_word(ch->ptr++);
-				ch->treviConfig = pgm_read_word(ch->ptr++) + ((cmd - 64) == 14 ? 0x00 : 0x40);
+				ch->treviConfig = pgm_read_word(ch->ptr++) + (cmd == 78 ? 0x00 : 0x40);
 				break;
 			case 15:
 			case 17: // Tremolo/Vibrato OFF
