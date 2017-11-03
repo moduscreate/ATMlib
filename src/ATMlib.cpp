@@ -211,6 +211,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 10: // Retriggering (noise) OFF
 				ch->reConfig = 0;
+				ch->reCount = 0;
 				break;
 			case 11: // ADD Transposition
 				ch->transConfig += (char)pgm_read_byte(ch->ptr++);
