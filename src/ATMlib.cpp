@@ -22,6 +22,7 @@ uint8_t ChannelActiveMute = 0b11110000;
 //                            |└------->  6  channel 2 is Active (0 = false / 1 = true)
 //                            └-------->  7  channel 3 is Active (0 = false / 1 = true)
 
+#define LAST_NOTE (63)
 const uint16_t noteTable[64] PROGMEM = {
 	0,
 	262,  277,  294,  311,  330,  349,  370,  392,  415,  440,  466,  494,
@@ -334,7 +335,7 @@ void ATM_playroutine() {
 			const uint8_t n0 = ch->note + ((ch->glisConfig & 0x80) ? -1 : 1);
 			// clamp note between 1 and 63
 			const uint8_t n1 = !n0 ? 1 : n0;
-			const uint8_t n2 = n1 > 63 ? 63 : n1;
+			const uint8_t n2 = n1 > LAST_NOTE ? LAST_NOTE : n1;
 			ch->note = n2;
 			ch->phase_increment = pgm_read_word(&noteTable[n2]);
 			ch->glisCount = 0;
