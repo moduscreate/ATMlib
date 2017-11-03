@@ -197,8 +197,9 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				ch->volFreConfig |= (cmd == 66) ? 0x00 : 0x40;
 				break;
 			case 3:
-			case 6: // Slide volume/frequency OFF (same as 0x01 0x00)
+			case 6: // Slide volume/frequency OFF
 				ch->volFreSlide = 0;
+				ch->volFreCount = 0;
 				break;
 			case 7: // Set Arpeggio
 				ch->arpNotes = pgm_read_byte(ch->ptr++);    // 0x40 + 0x03
