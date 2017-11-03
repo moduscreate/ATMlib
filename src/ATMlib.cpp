@@ -22,6 +22,8 @@ uint8_t ChannelActiveMute = 0b11110000;
 //                            |└------->  6  channel 2 is Active (0 = false / 1 = true)
 //                            └-------->  7  channel 3 is Active (0 = false / 1 = true)
 
+#define MAX_VOLUME (63)
+#define MAX_OSC_PHASE_INC (9397)
 #define LAST_NOTE (63)
 const uint16_t noteTable[64] PROGMEM = {
 	0,
@@ -350,12 +352,12 @@ void ATM_playroutine() {
 					if (vf < 0) {
 						vf = 0;
 					} else if (ch->volFreConfig & 0x40) {
-						if (vf > 9397) {
-							vf = 9397;
+						if (vf > MAX_OSC_PHASE_INC) {
+							vf = MAX_OSC_PHASE_INC;
 						}
 					} else if (!(ch->volFreConfig & 0x40)) {
-						if (vf > 63) {
-							vf = 63;
+						if (vf > MAX_VOLUME) {
+							vf = MAX_VOLUME;
 						}
 					}
 				}
@@ -404,12 +406,12 @@ void ATM_playroutine() {
 			if (vt < 0) {
 				vt = 0;
 			} else if (ch->treviConfig & 0x40) {
-				if (vt > 9397) {
-					vt = 9397;
+				if (vt > MAX_OSC_PHASE_INC) {
+					vt = MAX_OSC_PHASE_INC;
 				}
 			} else if (!(ch->treviConfig & 0x40)) {
-				if (vt > 63) {
-					vt = 63;
+				if (vt > MAX_VOLUME) {
+					vt = MAX_VOLUME;
 				}
 			}
 			if (ch->treviConfig & 0x40) {
