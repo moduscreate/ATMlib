@@ -400,6 +400,8 @@ void ATM_playroutine() {
 				if ((ch->arpCount & 0xE0) == 0x40) {
 					arpNote += (ch->arpNotes & 0x0F);
 				}
+				// Is it correct to add ch->transConfig to arpNote? The existing note should
+				// already be transposed.
 				ch->phase_increment = note_index_2_phase_inc(arpNote + ch->transConfig);
 			}
 		}
