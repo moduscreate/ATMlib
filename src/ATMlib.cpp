@@ -171,7 +171,8 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 {
 	if (cmd < 64) {
 		// 0 … 63 : NOTE ON/OFF
-		if (ch->note = cmd) {
+		ch->note = cmd;
+		if (ch->note) {
 			ch->note += ch->transConfig;
 		}
 		ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
