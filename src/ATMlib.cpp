@@ -34,6 +34,8 @@ const uint16_t noteTable[64] PROGMEM = {
 	4186, 4435, 4699, 4978, 5274, 5588, 5920, 6272, 6645, 7040, 7459, 7902,
 	8372, 8870, 9397,
 };
+#define note_index_2_phase_inc(note_idx) (pgm_read_word(&noteTable[(note_idx) & 0x3F]))
+
 
 struct channel_state {
 	const uint8_t *ptr;
@@ -175,7 +177,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 		if (ch->note) {
 			ch->note += ch->transConfig;
 		}
-		ch->phase_increment = pgm_read_word(&noteTable[ch->note]);
+		ch->phase_increment = note_index_2_phase_inc(ch->note);
 		if (!ch->volFreConfig) {
 			ch->vol = ch->reCount;
 		}
@@ -329,7 +331,7 @@ void ATM_playroutine() {
 
 		// Noise retriggering
 		if (ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
-			osc[n].phase_increment = pgm_read_word(&noteTable[ch->reConfig >> 2]);
+			osc[n].phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
 			ch->reCount = 0;
 		}
 
@@ -340,7 +342,7 @@ void ATM_playroutine() {
 			const uint8_t n1 = !n0 ? 1 : n0;
 			const uint8_t n2 = n1 > LAST_NOTE ? LAST_NOTE : n1;
 			ch->note = n2;
-			ch->phase_increment = pgm_read_word(&noteTable[n2]);
+			ch->phase_increment = note_index_2_phase_inc(n2);
 			ch->glisCount = 0;
 		}
 
@@ -398,7 +400,7 @@ void ATM_playroutine() {
 				if ((ch->arpCount & 0xE0) == 0x40) {
 					arpNote += (ch->arpNotes & 0x0F);
 				}
-				ch->phase_increment = pgm_read_word(&noteTable[arpNote + ch->transConfig]);
+				ch->phase_increment = note_index_2_phase_inc(arpNote + ch->transConfig);
 			}
 		}
 
