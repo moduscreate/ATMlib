@@ -345,26 +345,28 @@ void ATM_playroutine() {
 
 		// Apply volume/frequency slides
 		if (ch->volFreSlide) {
+			// Triggered when zero so the slide applies immediately.
+			// Should the slide apply after n ticks like glissando
+			// and noise retrigger instead? Would be more consistent,
+			// make code simpler with no loss of features.
 			if (!ch->volFreCount) {
-				int16_t vf = ((ch->volFreConfig & 0x40) ? ch->phase_increment : ch->vol);
-				vf += (ch->volFreSlide);
-				if (!(ch->volFreConfig & 0x80)) {
-					if (vf < 0) {
-						vf = 0;
-					} else if (ch->volFreConfig & 0x40) {
-						if (vf > MAX_OSC_PHASE_INC) {
-							vf = MAX_OSC_PHASE_INC;
-						}
-					} else if (!(ch->volFreConfig & 0x40)) {
-						if (vf > MAX_VOLUME) {
-							vf = MAX_VOLUME;
-						}
-					}
-				}
+				const bool clamp = !(ch->volFreConfig & 0x80);
 				if (ch->volFreConfig & 0x40) {
-					ch->phase_increment = vf;
+					// frequency slide
+					int16_t ph_inc = ch->phase_increment + ch->volFreSlide;
+					if (clamp) {
+						ph_inc = ph_inc < 0 ? 0 : ph_inc;
+						ph_inc = ph_inc > MAX_OSC_PHASE_INC ? MAX_OSC_PHASE_INC : ph_inc;
+					}
+					ch->phase_increment = ph_inc;
 				} else {
-					ch->vol = vf;
+					// volume slide
+					int8_t vol = ch->vol + ch->volFreSlide;
+					if (clamp) {
+						vol = vol < 0 ? 0 : vol;
+						vol = vol > MAX_VOLUME ? MAX_VOLUME : vol;
+					}
+					ch->vol = vol;
 				}
 			}
 			if (ch->volFreCount++ >= (ch->volFreConfig & 0x3F)) {
