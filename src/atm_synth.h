@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define ATM_SYNTH_DC_OFFSET (128)
+
 enum channels_e {
 	CH_ZERO = 0,
 	CH_ONE,
@@ -14,7 +16,6 @@ enum channels_e {
 extern uint8_t trackCount;
 extern const uint16_t *trackList;
 extern const uint8_t *trackBase;
-extern uint8_t pcm;
 extern uint16_t cia;
 extern uint16_t cia_count;
 

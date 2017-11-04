@@ -131,7 +131,7 @@ void ATMsynth::play(const uint8_t *song) {
 	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
 	TCCR4B = 0b00000001;    // 62500Hz
 	OCR4C  = 0xFF;          // Resolution to 8-bit (TOP=0xFF)
-	OCR4A  = 0x80;
+	OCR4A  = ATM_SYNTH_DC_OFFSET;
 	TIMSK4 = 0b00000100;
 
 

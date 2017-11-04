@@ -2,7 +2,6 @@
 #include <avr/interrupt.h>
 #include "atm_synth.h"
 
-uint8_t pcm __attribute__((used)) = 128;
 bool half __attribute__((used));
 uint16_t __attribute__((used)) cia;
 uint16_t __attribute__((used)) cia_count;
@@ -96,7 +95,7 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "neg  r27                                         " "\n\t" \
                 "add  r26,                   r27                  " "\n\t" \
                 \
-                "lds  r27,                   pcm                  " "\n\t" \
+                "ldi  r27,                   %[dc]                 " "\n\t" \
                 "add  r26,                   r27                  " "\n\t" \
                 "sts  %[reg],                r26                  " "\n\t" \
                 \
@@ -155,6 +154,7 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "reti                                             " "\n\t" \
                 : \
                 : [reg] "M" _SFR_MEM_ADDR(TARGET_REGISTER), \
+                [dc]  "M" (ATM_SYNTH_DC_OFFSET), \
                 [mul] "M" (sizeof(struct osc)), \
                 [pha] "M" (offsetof(struct osc, phase_accumulator)), \
                 [phi] "M" (offsetof(struct osc, phase_increment)), \
