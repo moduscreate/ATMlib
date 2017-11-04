@@ -56,7 +56,7 @@ struct channel_state {
 	uint8_t vol;
 
 	// Volume & Frequency slide FX
-	char volFreSlide;
+	int8_t volFreSlide;
 	uint8_t volFreConfig;
 	uint8_t volFreCount;
 
@@ -70,7 +70,7 @@ struct channel_state {
 	uint8_t reCount;        // also using this as a buffer for volume retrig on all channels
 
 	// Transposition FX
-	char transConfig;
+	int8_t transConfig;
 
 	// Tremolo or Vibrato FX
 	uint8_t treviDepth;
@@ -78,7 +78,7 @@ struct channel_state {
 	uint8_t treviCount;
 
 	// Glissando FX
-	char glisConfig;
+	int8_t glisConfig;
 	uint8_t glisCount;
 
 };
@@ -219,7 +219,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				ch->reCount = 0;
 				break;
 			case 11: // ADD Transposition
-				ch->transConfig += (char)pgm_read_byte(ch->ptr++);
+				ch->transConfig += (int8_t)pgm_read_byte(ch->ptr++);
 				break;
 			case 12: // SET Transposition
 				ch->transConfig = pgm_read_byte(ch->ptr++);
