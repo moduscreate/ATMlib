@@ -6,6 +6,7 @@
 #define ATM_SYNTH_DC_OFFSET (128)
 
 enum channels_e {
+/* Not prefixing these enum constants to avoid breaking existing code */
 	CH_ZERO = 0,
 	CH_ONE,
 	CH_TWO,
