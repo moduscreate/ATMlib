@@ -6,21 +6,7 @@
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
-uint8_t trackCount;
-uint8_t tickRate;
-const uint16_t *trackList;
-const uint8_t *trackBase;
-
-uint8_t ChannelActiveMute = 0b11110000;
-//                            ||||||||
-//                            |||||||└->  0  channel 0 is muted (0 = false / 1 = true)
-//                            ||||||└-->  1  channel 1 is muted (0 = false / 1 = true)
-//                            |||||└--->  2  channel 2 is muted (0 = false / 1 = true)
-//                            ||||└---->  3  channel 3 is muted (0 = false / 1 = true)
-//                            |||└----->  4  channel 0 is Active (0 = false / 1 = true)
-//                            ||└------>  5  channel 1 is Active (0 = false / 1 = true)
-//                            |└------->  6  channel 2 is Active (0 = false / 1 = true)
-//                            └-------->  7  channel 3 is Active (0 = false / 1 = true)
+struct atmlib_state atmlib_state;
 
 #define MAX_VOLUME (63)
 #define MAX_OSC_PHASE_INC (9397)
@@ -42,7 +28,7 @@ struct channel_state {
 	uint8_t note;
 
 	// Nesting
-	uint16_t stackPointer[7];
+	uint8_t *stackPointer[7];
 	uint8_t stackCounter[7];
 	uint8_t stackTrack[7]; // note 1
 	uint8_t stackIndex;
@@ -98,8 +84,9 @@ uint16_t read_vle(const uint8_t **pp) {
 	return q;
 }
 
-static inline const uint8_t *getTrackPointer(uint8_t track) {
-	return trackBase + pgm_read_word(&trackList[track]);
+static inline const uint8_t *get_track_start_ptr(const uint8_t track_index)
+{
+	return atmlib_state.tracks_base + pgm_read_word(&atmlib_state.track_list[track_index]);
 }
 
 // Stop playing, unload melody
@@ -111,7 +98,7 @@ static void atmsynth_stop(void) {
 	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++) {
 		channels[n].delay = 0xFFFF;
 	}
-	ChannelActiveMute = 0b11110000;
+	atmlib_state.channel_active_mute = 0b11110000;
 }
 
 void ATMsynth::play(const uint8_t *song) {
@@ -121,12 +108,13 @@ void ATMsynth::play(const uint8_t *song) {
 
 	// Initializes ATMsynth
 	// Sets sample rate and tick rate
-	tickRate = 25;
-	cia = 15625 / tickRate;
+	atmlib_state.tick_rate = 25;
+	cia = 15625 / atmlib_state.tick_rate;
 	cia_count = cia;
 	// Sets up the ports, and the sample grinding ISR
 	osc[CH_THREE].phase_increment = 0x0001; // Seed LFSR
 	channels[CH_THREE].phase_increment = 0x0001; // xFX
+	atmlib_state.channel_active_mute = 0b11110000;
 
 	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
 	TCCR4B = 0b00000001;    // 62500Hz
@@ -134,17 +122,17 @@ void ATMsynth::play(const uint8_t *song) {
 	OCR4A  = ATM_SYNTH_DC_OFFSET;
 	TIMSK4 = 0b00000100;
 
-
 	// Load a melody stream and start grinding samples
 	// Read track count
-	trackCount = pgm_read_byte(song++);
+	uint8_t tracks_count = pgm_read_byte(song++);
 	// Store track list pointer
-	trackList = (uint16_t*)song;
+	atmlib_state.track_list = (uint16_t*)song;
 	// Store track pointer
-	trackBase = (song += (trackCount << 1)) + CH_COUNT;
+	song += tracks_count*sizeof(uint16_t);
+	atmlib_state.tracks_base = song + CH_COUNT;
 	// Fetch starting points for each track
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
-		channels[n].ptr = getTrackPointer(pgm_read_byte(song++));
+		channels[n].ptr = get_track_start_ptr(pgm_read_byte(song++));
 		channels[n].delay = 0;
 	}
 }
@@ -162,11 +150,11 @@ void ATMsynth::playPause() {
 // Toggle mute on/off on a channel, so it can be used for sound effects
 // So you have to call it before and after the sound effect
 void ATMsynth::muteChannel(uint8_t ch) {
-	ChannelActiveMute += (1 << ch);
+	atmlib_state.channel_active_mute += (1 << ch);
 }
 
 void ATMsynth::unMuteChannel(uint8_t ch) {
-	ChannelActiveMute &= (~(1 << ch));
+	atmlib_state.channel_active_mute &= (~(1 << ch));
 }
 
 static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_state *ch)
@@ -254,12 +242,12 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				ch->arpNotes = 0;
 				break;
 			case 92: // ADD tempo
-				tickRate += pgm_read_byte(ch->ptr++);
-				cia = 15625 / tickRate;
+				atmlib_state.tick_rate += pgm_read_byte(ch->ptr++);
+				cia = 15625 / atmlib_state.tick_rate;
 				break;
 			case 93: // SET tempo
-				tickRate = pgm_read_byte(ch->ptr++);
-				cia = 15625 / tickRate;
+				atmlib_state.tick_rate = pgm_read_byte(ch->ptr++);
+				cia = 15625 / atmlib_state.tick_rate;
 				break;
 			case 94: // Goto advanced
 				for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) {
@@ -267,7 +255,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				}
 				break;
 			case 95: // Stop channel
-				ChannelActiveMute = ChannelActiveMute ^ (1 << (n + CH_COUNT));
+				atmlib_state.channel_active_mute = atmlib_state.channel_active_mute ^ (1 << (n + CH_COUNT));
 				ch->vol = 0;
 				ch->delay = 0xFFFF;
 				break;
@@ -289,13 +277,13 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			// Stack PUSH
 			ch->stackCounter[ch->stackIndex] = ch->counter;
 			ch->stackTrack[ch->stackIndex] = ch->track; // note 1
-			ch->stackPointer[ch->stackIndex] = ch->ptr - trackBase;
+			ch->stackPointer[ch->stackIndex] = ch->ptr;
 			ch->stackIndex++;
 			ch->track = new_track;
 		}
 
 		ch->counter = new_counter;
-		ch->ptr = getTrackPointer(ch->track);
+		ch->ptr = get_track_start_ptr(ch->track);
 	} else if (cmd == 254) {
 		// 254 : RETURN
 		if (ch->counter > 0 || ch->stackIndex == 0) {
@@ -303,7 +291,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			if (ch->counter) {
 				ch->counter--;
 			}
-			ch->ptr = getTrackPointer(ch->track);
+			ch->ptr = get_track_start_ptr(ch->track);
 			//asm volatile ("  jmp 0"); // reboot
 		} else {
 			// Check stack depth
@@ -313,7 +301,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			} else {
 				// Stack POP
 				ch->stackIndex--;
-				ch->ptr = ch->stackPointer[ch->stackIndex] + trackBase;
+				ch->ptr = ch->stackPointer[ch->stackIndex];
 				ch->counter = ch->stackCounter[ch->stackIndex];
 				ch->track = ch->stackTrack[ch->stackIndex]; // note 1
 			}
@@ -448,7 +436,7 @@ void ATM_playroutine() {
 			ch->delay--;
 		}
 
-		if (!(ChannelActiveMute & (1 << n))) {
+		if (!(atmlib_state.channel_active_mute & (1 << n))) {
 			if (n == CH_THREE) {
 				// Half volume, no frequency for noise channel
 				osc[n].vol = ch->vol >> 1;
@@ -460,17 +448,17 @@ void ATM_playroutine() {
 	}
 
 	// if all channels are inactive, stop playing or check for repeat
-	if (!(ChannelActiveMute & 0xF0)) {
+	if (!(atmlib_state.channel_active_mute & 0xF0)) {
 		uint8_t repeatSong = 0;
 		for (uint8_t j = 0; j < ARRAY_SIZE(channels); j++) {
 			repeatSong += channels[j].repeatPoint;
 		}
 		if (repeatSong) {
 			for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
-				channels[k].ptr = getTrackPointer(channels[k].repeatPoint);
+				channels[k].ptr = get_track_start_ptr(channels[k].repeatPoint);
 				channels[k].delay = 0;
 			}
-			ChannelActiveMute |= 0b11110000;
+			atmlib_state.channel_active_mute |= 0b11110000;
 		} else {
 			atmsynth_stop();
 		}
