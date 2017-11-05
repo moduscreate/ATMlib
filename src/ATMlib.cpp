@@ -262,7 +262,9 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				cia = 15625 / tickRate;
 				break;
 			case 94: // Goto advanced
-				for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
+				for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) {
+					channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
+				}
 				break;
 			case 95: // Stop channel
 				ChannelActiveMute = ChannelActiveMute ^ (1 << (n + CH_COUNT));
