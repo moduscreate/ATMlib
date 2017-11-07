@@ -470,7 +470,7 @@ void ATM_playroutine() {
 				channels[k].ptr = getTrackPointer(channels[k].repeatPoint);
 				channels[k].delay = 0;
 			}
-			ChannelActiveMute = 0b11110000;
+			ChannelActiveMute |= 0b11110000;
 		} else {
 			atmsynth_stop();
 		}
