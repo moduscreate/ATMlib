@@ -2,9 +2,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define OSC_SAMPLERATE (31250/2)
 #define OSC_DC_OFFSET (128)
+#define ISR_PRESCALER_DIV (4)
+#define OSC_TICK_CALLBACK_COUNT (2)
 
-enum channels_e {
+enum osc_channels_e {
 /* Not prefixing these enum constants to avoid breaking existing code */
 	CH_ZERO = 0,
 	CH_ONE,
@@ -13,15 +16,15 @@ enum channels_e {
 	CH_COUNT,
 };
 
-/* oscillator structure */
-struct osc {
-	uint8_t  vol;
-	uint16_t phase_increment;
-	uint16_t phase_accumulator;
-};
+typedef void (*osc_tick_callback)(uint8_t cb_index, void *priv);
 
-extern uint16_t __attribute__((used)) cia;
-extern uint16_t __attribute__((used)) cia_count;
-extern struct osc osc[CH_COUNT];
+void osc_setup(void);
+void osc_reset(void);
+void osc_setactive(uint8_t active_flag);
+uint8_t osc_getactive(void);
+void osc_toggleactive(void);
 
-extern void osc_tick_handler() asm("osc_tick_handler");
+void osc_update_osc(uint8_t osc_idx, uint16_t phase_increment, uint8_t volume);
+void osc_set_tick_rate(uint8_t callback_idx, uint8_t rate_hz);
+void osc_set_tick_callback(uint8_t callback_idx, osc_tick_callback cb, void *priv);
+void osc_get_tick_callback(uint8_t callback_idx, osc_tick_callback *cb, void **priv);

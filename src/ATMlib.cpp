@@ -22,6 +22,7 @@ const uint16_t noteTable[64] PROGMEM = {
 };
 #define note_index_2_phase_inc(note_idx) (pgm_read_word(&noteTable[(note_idx) & 0x3F]))
 
+static void atm_synth_tick_handler(uint8_t cb_index, void *priv);
 
 struct channel_state {
 	const uint8_t *ptr;
@@ -39,7 +40,7 @@ struct channel_state {
 	uint8_t counter;
 	uint8_t track;
 
-	// External FX
+	// Shadow OSC state
 	uint16_t phase_increment;
 	uint8_t vol;
 
@@ -89,15 +90,9 @@ static inline const uint8_t *get_track_start_ptr(const uint8_t track_index)
 	return atmlib_state.tracks_base + pgm_read_word(&atmlib_state.track_list[track_index]);
 }
 
-static inline uint16_t compute_isr_to_ticks_div(uint8_t tick_rate_hz)
-{
-	return ATM_SYNTH_SAMPLERATE/tick_rate_hz;
-}
-
 // Stop playing, unload melody
 static void atmsynth_stop(void) {
-	TIMSK4 = 0; // Disable interrupt
-	memset(osc, 0, sizeof(osc));
+	osc_reset();
 	memset(channels, 0, sizeof(channels));
 	/* mark the channel as stopped */
 	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++) {
@@ -107,25 +102,17 @@ static void atmsynth_stop(void) {
 }
 
 void ATMsynth::play(const uint8_t *song) {
-
 	// cleanUp stuff first
 	atmsynth_stop();
+	osc_setup();
+
+	osc_set_tick_callback(0, atm_synth_tick_handler, NULL);
 
 	// Initializes ATMsynth
-	// Sets sample rate and tick rate
-	atmlib_state.tick_rate = 25;
-	cia = compute_isr_to_ticks_div(25);
-	cia_count = cia;
-	// Sets up the ports, and the sample grinding ISR
-	osc[CH_THREE].phase_increment = 0x0001; // Seed LFSR
 	channels[CH_THREE].phase_increment = 0x0001; // xFX
 	atmlib_state.channel_active_mute = 0b11110000;
-
-	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
-	TCCR4B = 0b00000001;    // 62500Hz
-	OCR4C  = 0xFF;          // Resolution to 8-bit (TOP=0xFF)
-	OCR4A  = OSC_DC_OFFSET;
-	TIMSK4 = 0b00000100;
+	atmlib_state.tick_rate = 25;
+	osc_set_tick_rate(0, atmlib_state.tick_rate);
 
 	// Load a melody stream and start grinding samples
 	// Read track count
@@ -140,6 +127,7 @@ void ATMsynth::play(const uint8_t *song) {
 		channels[n].ptr = get_track_start_ptr(pgm_read_byte(song++));
 		channels[n].delay = 0;
 	}
+	osc_setactive(true);
 }
 
 // Stop playing, unload melody
@@ -149,7 +137,7 @@ void ATMsynth::stop() {
 
 // Start grinding samples or Pause playback
 void ATMsynth::playPause() {
-	TIMSK4 = TIMSK4 ^ 0b00000100; // toggle disable/enable interrupt
+	osc_toggleactive();
 }
 
 // Toggle mute on/off on a channel, so it can be used for sound effects
@@ -248,11 +236,11 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 92: // ADD tempo
 				atmlib_state.tick_rate += pgm_read_byte(ch->ptr++);
-				cia = compute_isr_to_ticks_div(atmlib_state.tick_rate);
+				osc_set_tick_rate(0, atmlib_state.tick_rate);
 				break;
 			case 93: // SET tempo
 				atmlib_state.tick_rate = pgm_read_byte(ch->ptr++);
-				cia = compute_isr_to_ticks_div(atmlib_state.tick_rate);
+				osc_set_tick_rate(0, atmlib_state.tick_rate);
 				break;
 			case 94: // Goto advanced
 				for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) {
@@ -317,16 +305,15 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 	}
 }
 
-__attribute__((used))
-void osc_tick_handler() {
+static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 	// for every channel start working
-	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++)
+	for (uint8_t ch_index = 0; ch_index < ARRAY_SIZE(channels); ch_index++)
 	{
-		struct channel_state *ch = &channels[n];
+		struct channel_state *ch = &channels[ch_index];
 
 		// Noise retriggering
-		if (ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
-			osc[n].phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
+		if (ch_index == CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
+			osc_update_osc(CH_THREE | 0x80, note_index_2_phase_inc(ch->reConfig >> 2), ch->vol);
 			ch->reCount = 0;
 		}
 
@@ -434,21 +421,15 @@ void osc_tick_handler() {
 
 		while (ch->delay == 0) {
 			const uint8_t cmd = pgm_read_byte(ch->ptr++);
-			process_cmd(n, cmd, ch);
+			process_cmd(ch_index, cmd, ch);
 		}
 
 		if (ch->delay != 0xFFFF) {
 			ch->delay--;
 		}
 
-		if (!(atmlib_state.channel_active_mute & (1 << n))) {
-			if (n == CH_THREE) {
-				// Half volume, no frequency for noise channel
-				osc[n].vol = ch->vol >> 1;
-			} else {
-				osc[n].phase_increment = ch->phase_increment;
-				osc[n].vol = ch->vol;
-			}
+		if (!(atmlib_state.channel_active_mute & (1 << ch_index))) {
+			osc_update_osc(ch_index, ch->phase_increment, ch->vol);
 		}
 	}
 

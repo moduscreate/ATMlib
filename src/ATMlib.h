@@ -1,7 +1,9 @@
 #ifndef _ATMLIB_H_
 #define _ATMLIB_H_
 
+extern "C" {
 #include "atm_synth.h"
+}
 
 class ATMsynth {
 

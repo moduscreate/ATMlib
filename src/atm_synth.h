@@ -4,8 +4,6 @@
 
 #include "isr.h"
 
-#define ATM_SYNTH_SAMPLERATE (31250/2)
-
 struct atmlib_state {
 	const uint16_t *track_list;
 	const uint8_t *tracks_base;
@@ -23,5 +21,9 @@ struct atmlib_state {
 };
 
 extern struct atmlib_state atmlib_state;
+extern struct osc_tick_callback_info osc_tick_dispatch_table[CH_COUNT];
 
 uint16_t read_vle(const uint8_t **pp);
+
+void osc_setup(void);
+uint8_t osc_compute_callback_prescaler(uint8_t rate_hz);
