@@ -89,6 +89,11 @@ static inline const uint8_t *get_track_start_ptr(const uint8_t track_index)
 	return atmlib_state.tracks_base + pgm_read_word(&atmlib_state.track_list[track_index]);
 }
 
+static inline uint16_t compute_isr_to_ticks_div(uint8_t tick_rate_hz)
+{
+	return ATM_SYNTH_SAMPLERATE/tick_rate_hz;
+}
+
 // Stop playing, unload melody
 static void atmsynth_stop(void) {
 	TIMSK4 = 0; // Disable interrupt
@@ -109,7 +114,7 @@ void ATMsynth::play(const uint8_t *song) {
 	// Initializes ATMsynth
 	// Sets sample rate and tick rate
 	atmlib_state.tick_rate = 25;
-	cia = 15625 / atmlib_state.tick_rate;
+	cia = compute_isr_to_ticks_div(25);
 	cia_count = cia;
 	// Sets up the ports, and the sample grinding ISR
 	osc[CH_THREE].phase_increment = 0x0001; // Seed LFSR
@@ -243,11 +248,11 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 92: // ADD tempo
 				atmlib_state.tick_rate += pgm_read_byte(ch->ptr++);
-				cia = 15625 / atmlib_state.tick_rate;
+				cia = compute_isr_to_ticks_div(atmlib_state.tick_rate);
 				break;
 			case 93: // SET tempo
 				atmlib_state.tick_rate = pgm_read_byte(ch->ptr++);
-				cia = 15625 / atmlib_state.tick_rate;
+				cia = compute_isr_to_ticks_div(atmlib_state.tick_rate);
 				break;
 			case 94: // Goto advanced
 				for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) {

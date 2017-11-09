@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define ATM_SYNTH_SAMPLERATE (31250/2)
 #define ATM_SYNTH_DC_OFFSET (128)
 
 enum channels_e {
