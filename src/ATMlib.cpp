@@ -124,7 +124,7 @@ void ATMsynth::play(const uint8_t *song) {
 	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
 	TCCR4B = 0b00000001;    // 62500Hz
 	OCR4C  = 0xFF;          // Resolution to 8-bit (TOP=0xFF)
-	OCR4A  = ATM_SYNTH_DC_OFFSET;
+	OCR4A  = OSC_DC_OFFSET;
 	TIMSK4 = 0b00000100;
 
 	// Load a melody stream and start grinding samples
@@ -318,7 +318,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 }
 
 __attribute__((used))
-void ATM_playroutine() {
+void osc_tick_handler() {
 	// for every channel start working
 	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++)
 	{

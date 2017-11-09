@@ -1,6 +1,7 @@
 
+#include <stddef.h>
 #include <avr/interrupt.h>
-#include "atm_synth.h"
+#include "isr.h"
 
 bool half __attribute__((used));
 uint16_t __attribute__((used)) cia;
@@ -132,7 +133,7 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "push r31                                         " "\n\t" \
                 \
                 "clr  r1                                          " "\n\t" \
-                "call ATM_playroutine                             " "\n\t" \
+                "call osc_tick_handler                            " "\n\t" \
                 \
                 "pop  r31                                         " "\n\t" \
                 "pop  r30                                         " "\n\t" \
@@ -154,7 +155,7 @@ ISR(TIMER4_OVF_vect, ISR_NAKED) { \
                 "reti                                             " "\n\t" \
                 : \
                 : [reg] "M" _SFR_MEM_ADDR(TARGET_REGISTER), \
-                [dc]  "M" (ATM_SYNTH_DC_OFFSET), \
+                [dc]  "M" (OSC_DC_OFFSET), \
                 [mul] "M" (sizeof(struct osc)), \
                 [pha] "M" (offsetof(struct osc, phase_accumulator)), \
                 [phi] "M" (offsetof(struct osc, phase_increment)), \
