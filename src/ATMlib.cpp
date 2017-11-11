@@ -330,34 +330,26 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 		}
 
 		// Apply volume/frequency slides
-		if (ch->volFreSlide) {
-			// Triggered when zero so the slide applies immediately.
-			// Should the slide apply after n ticks like glissando
-			// and noise retrigger instead? Would be more consistent,
-			// make code simpler with no loss of features.
-			if (!ch->volFreCount) {
-				const bool clamp = !(ch->volFreConfig & 0x80);
-				if (ch->volFreConfig & 0x40) {
-					// frequency slide
-					int16_t ph_inc = ch->osc_params.phase_increment + ch->volFreSlide;
-					if (clamp) {
-						ph_inc = ph_inc < 0 ? 0 : ph_inc;
-						ph_inc = ph_inc > MAX_OSC_PHASE_INC ? MAX_OSC_PHASE_INC : ph_inc;
-					}
-					ch->osc_params.phase_increment = ph_inc;
-				} else {
-					// volume slide
-					int8_t vol = ch->osc_params.vol + ch->volFreSlide;
-					if (clamp) {
-						vol = vol < 0 ? 0 : vol;
-						vol = vol > MAX_VOLUME ? MAX_VOLUME : vol;
-					}
-					ch->osc_params.vol = vol;
+		if (ch->volFreSlide && (ch->volFreCount++ >= (ch->volFreConfig & 0x3F))) {
+			const bool clamp = !(ch->volFreConfig & 0x80);
+			if (ch->volFreConfig & 0x40) {
+				// frequency slide
+				int16_t ph_inc = ch->osc_params.phase_increment + ch->volFreSlide;
+				if (clamp) {
+					ph_inc = ph_inc < 0 ? 0 : ph_inc;
+					ph_inc = ph_inc > MAX_OSC_PHASE_INC ? MAX_OSC_PHASE_INC : ph_inc;
 				}
+				ch->osc_params.phase_increment = ph_inc;
+			} else {
+				// volume slide
+				int8_t vol = ch->osc_params.vol + ch->volFreSlide;
+				if (clamp) {
+					vol = vol < 0 ? 0 : vol;
+					vol = vol > MAX_VOLUME ? MAX_VOLUME : vol;
+				}
+				ch->osc_params.vol = vol;
 			}
-			if (ch->volFreCount++ >= (ch->volFreConfig & 0x3F)) {
-				ch->volFreCount = 0;
-			}
+			ch->volFreCount = 0;
 		}
 
 		// Apply Arpeggio or Note Cut
