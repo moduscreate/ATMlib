@@ -24,6 +24,53 @@ const uint16_t noteTable[64] PROGMEM = {
 
 static void atm_synth_tick_handler(uint8_t cb_index, void *priv);
 
+struct slide_params {
+	int8_t slide_amount;
+	uint8_t slide_config;
+	uint8_t slide_count;
+};
+
+/* flags: bit 7 = 0 clamp, 1 wraparound */
+static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
+{
+	const bool clamp = !(flags & 0x80);
+	const int16_t res = value + amount;
+	if (clamp) {
+		if (res < bottom) {
+			return bottom;
+		} else if (res > top) {
+			return top;
+		}
+	}
+	return res;
+}
+
+static void slidefx(struct slide_params *slide_params, struct osc_params *osc_params)
+{
+	if (slide_params->slide_amount &&
+		(slide_params->slide_count++ >= (slide_params->slide_config & 0x3F))) {
+		switch (slide_params->slide_config & 0x40) {
+			case 0:
+				osc_params->vol = slide_quantity(
+										slide_params->slide_amount,
+										osc_params->vol,
+										0,
+										MAX_VOLUME,
+										slide_params->slide_config & 0x80);
+				break;
+			case 0x40:
+				osc_params->phase_increment = slide_quantity(
+												slide_params->slide_amount,
+												osc_params->phase_increment,
+												0,
+												MAX_OSC_PHASE_INC,
+												slide_params->slide_config & 0x80);
+				break;
+		}
+		slide_params->slide_count = 0;
+	}
+}
+
 struct channel_state {
 	const uint8_t *ptr;
 	uint8_t note;
@@ -44,9 +91,7 @@ struct channel_state {
 	struct osc_params osc_params;
 
 	// Volume & Frequency slide FX
-	int8_t volFreSlide;
-	uint8_t volFreConfig;
-	uint8_t volFreCount;
+	struct slide_params vf_slide;
 
 	// Arpeggio or Note Cut FX
 	uint8_t arpNotes;       // notes: base, base+[7:4], base+[7:4]+[3:0], if FF => note cut ON
@@ -150,21 +195,6 @@ void ATMsynth::unMuteChannel(uint8_t ch) {
 	atmlib_state.channel_active_mute &= (~(1 << ch));
 }
 
-/* flags: bit 7 = 0 clamp, 1 wraparound */
-static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
-{
-	const bool clamp = !(flags & 0x80);
-	const int16_t res = value + amount;
-	if (clamp) {
-		if (res < bottom) {
-			return bottom;
-		} else if (res > top) {
-			return top;
-		}
-	}
-	return res;
-}
-
 static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_state *ch)
 {
 	if (cmd < 64) {
@@ -174,7 +204,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			ch->note += ch->transConfig;
 		}
 		ch->osc_params.phase_increment = note_index_2_phase_inc(ch->note);
-		if (!ch->volFreConfig) {
+		if (!ch->vf_slide.slide_config) {
 			ch->osc_params.vol = ch->reCount;
 		}
 		if (ch->arpTiming & 0x20) {
@@ -189,19 +219,20 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 1:
 			case 4: // Slide volume/frequency ON
-				ch->volFreSlide = pgm_read_byte(ch->ptr++);
-				ch->volFreConfig = (cmd == 65) ? 0x00 : 0x40;
-				ch->volFreCount = 0;
+				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_config = (cmd == 65) ? 0x00 : 0x40;
+				ch->vf_slide.slide_count = 0;
 				break;
 			case 2:
 			case 5: // Slide volume/frequency ON advanced
-				ch->volFreSlide = pgm_read_byte(ch->ptr++);
-				ch->volFreConfig = pgm_read_byte(ch->ptr++) & 0xBF;
-				ch->volFreConfig |= (cmd == 66) ? 0x00 : 0x40;
+				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_config = pgm_read_byte(ch->ptr++) & 0xBF;
+				ch->vf_slide.slide_config |= (cmd == 66) ? 0x00 : 0x40;
+				ch->vf_slide.slide_count = 0;
 				break;
 			case 3:
 			case 6: // Slide volume/frequency OFF
-				ch->volFreSlide = 0;
+				ch->vf_slide.slide_amount = 0;
 				break;
 			case 7: // Set Arpeggio
 				ch->arpNotes = pgm_read_byte(ch->ptr++);    // 0x40 + 0x03
@@ -343,24 +374,7 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 		}
 
 		// Apply volume/frequency slides
-		if (ch->volFreSlide && (ch->volFreCount++ >= (ch->volFreConfig & 0x3F))) {
-			if (ch->volFreConfig & 0x40) {
-				ch->osc_params.phase_increment = slide_quantity(
-													ch->volFreSlide,
-													ch->osc_params.phase_increment,
-													0,
-													MAX_OSC_PHASE_INC,
-													ch->volFreConfig & 0x80);
-			} else {
-				ch->osc_params.vol = slide_quantity(
-										ch->volFreSlide,
-										ch->osc_params.vol,
-										0,
-										MAX_VOLUME,
-										ch->volFreConfig & 0x80);
-			}
-			ch->volFreCount = 0;
-		}
+		slidefx(&ch->vf_slide, &ch->osc_params);
 
 		// Apply Arpeggio or Note Cut
 		if (ch->arpNotes && ch->note) {
