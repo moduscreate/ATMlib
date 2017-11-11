@@ -47,27 +47,38 @@ static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int
 
 static void slidefx(struct slide_params *slide_params, struct osc_params *osc_params)
 {
-	if (slide_params->slide_amount &&
-		(slide_params->slide_count++ >= (slide_params->slide_config & 0x3F))) {
-		switch (slide_params->slide_config & 0x40) {
-			case 0:
-				osc_params->vol = slide_quantity(
-										slide_params->slide_amount,
-										osc_params->vol,
-										0,
-										MAX_VOLUME,
-										slide_params->slide_config & 0x80);
-				break;
-			case 0x40:
-				osc_params->phase_increment = slide_quantity(
-												slide_params->slide_amount,
-												osc_params->phase_increment,
-												0,
-												MAX_OSC_PHASE_INC,
-												slide_params->slide_config & 0x80);
-				break;
+	if (slide_params->slide_amount) {
+		if ((slide_params->slide_count & 0x3F) >= (slide_params->slide_config & 0x3F)) {
+			switch (slide_params->slide_count & 0xC0) {
+				case 0:
+					osc_params->vol = slide_quantity(
+											slide_params->slide_amount,
+											osc_params->vol,
+											0,
+											MAX_VOLUME,
+											slide_params->slide_config & 0x80);
+					break;
+				case 0x40:
+					osc_params->phase_increment = slide_quantity(
+													slide_params->slide_amount,
+													osc_params->phase_increment,
+													0,
+													MAX_OSC_PHASE_INC,
+													slide_params->slide_config & 0x80);
+					break;
+				case 0x80:
+					osc_params->mod = slide_quantity(
+													slide_params->slide_amount,
+													osc_params->mod,
+													0,
+													OSC_MOD_MAX,
+													slide_params->slide_config & 0x80);
+					break;
+			}
+			slide_params->slide_count &= 0xC0;
+		} else {
+			slide_params->slide_count++;
 		}
-		slide_params->slide_count = 0;
 	}
 }
 
@@ -220,15 +231,14 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			case 1:
 			case 4: // Slide volume/frequency ON
 				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_config = (cmd == 65) ? 0x00 : 0x40;
-				ch->vf_slide.slide_count = 0;
+				ch->vf_slide.slide_config = 0;
+				ch->vf_slide.slide_count = (cmd == 65) ? 0x00 : 0x40;
 				break;
 			case 2:
 			case 5: // Slide volume/frequency ON advanced
 				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_config = pgm_read_byte(ch->ptr++) & 0xBF;
-				ch->vf_slide.slide_config |= (cmd == 66) ? 0x00 : 0x40;
-				ch->vf_slide.slide_count = 0;
+				ch->vf_slide.slide_config = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_count = (cmd == 66) ? 0x00 : 0x40;
 				break;
 			case 3:
 			case 6: // Slide volume/frequency OFF
@@ -279,6 +289,22 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 21: // Note Cut OFF
 				ch->arpNotes = 0;
+				break;
+			case 22: // Set modulation
+				ch->osc_params.mod = pgm_read_byte(ch->ptr++);
+				break;
+			case 23: // Set modulation slide
+				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_config = 0;
+				ch->vf_slide.slide_count = 0x80;
+				break;
+			case 24: // Set advanced modulation slide
+				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_config = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_count = 0x80;
+				break;
+			case 25: // Modulation slide off
+				ch->vf_slide.slide_amount = 0;
 				break;
 			case 92: // ADD tempo
 				atmlib_state.tick_rate += pgm_read_byte(ch->ptr++);
