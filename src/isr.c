@@ -127,16 +127,13 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	lds  r1,                    osc+2*%[osz]+%[pha]+1" ASM_EOL
 "	adc  r1,                    r18                  " ASM_EOL
 "	sts  osc+2*%[osz]+%[pha]+1, r1                   " ASM_EOL
-"; OSC 2 triangle waveform                           " ASM_EOL
-"	mov  r27,                   r1                   " ASM_EOL
-"	sbrc r27,                   7                    " ASM_EOL
-"	com  r27                                         " ASM_EOL
-"	lsl  r27                                         " ASM_EOL
+"; OSC 2 square waveform (75/25 duty-cycle)          " ASM_EOL
+"	mov  r18,                   r1                   " ASM_EOL
+"	lsl  r18                                         " ASM_EOL
+"	and  r18,                   r1                   " ASM_EOL
 "	lds  r26,                   osc+2*%[osz]+%[vol]  " ASM_EOL
-"	subi r27,                   128                  " ASM_EOL
-"	muls r27,                   r26                  " ASM_EOL
-"	lsl  r1                                          " ASM_EOL
-"	mov  r26,                   r1                   " ASM_EOL
+"	sbrs r18,                   7                    " ASM_EOL
+"	neg  r26                                         " ASM_EOL
 "; OSC 0 advance phase accumulator                   " ASM_EOL
 "	lds  r18,                   osc+0*%[osz]+%[phi]  " ASM_EOL
 "	lds  r0,                    osc+0*%[osz]+%[pha]  " ASM_EOL
