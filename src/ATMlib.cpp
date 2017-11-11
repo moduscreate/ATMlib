@@ -150,6 +150,21 @@ void ATMsynth::unMuteChannel(uint8_t ch) {
 	atmlib_state.channel_active_mute &= (~(1 << ch));
 }
 
+/* flags: bit 7 = 0 clamp, 1 wraparound */
+static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
+{
+	const bool clamp = !(flags & 0x80);
+	const int16_t res = value + amount;
+	if (clamp) {
+		if (res < bottom) {
+			return bottom;
+		} else if (res > top) {
+			return top;
+		}
+	}
+	return res;
+}
+
 static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_state *ch)
 {
 	if (cmd < 64) {
@@ -320,34 +335,29 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 
 		//Apply Glissando
 		if (ch->glisConfig && (ch->glisCount++ >= (ch->glisConfig & 0x7F))) {
-			const uint8_t n0 = ch->note + ((ch->glisConfig & 0x80) ? -1 : 1);
-			// clamp note between 1 and 63
-			const uint8_t n1 = !n0 ? 1 : n0;
-			const uint8_t n2 = n1 > LAST_NOTE ? LAST_NOTE : n1;
-			ch->note = n2;
-			ch->osc_params.phase_increment = note_index_2_phase_inc(n2);
+			const uint8_t amount = (ch->glisConfig & 0x80) ? -1 : 1;
+			const uint8_t note = slide_quantity(amount, ch->note, 1, LAST_NOTE, 0);
+			ch->note = note;
+			ch->osc_params.phase_increment = note_index_2_phase_inc(note);
 			ch->glisCount = 0;
 		}
 
 		// Apply volume/frequency slides
 		if (ch->volFreSlide && (ch->volFreCount++ >= (ch->volFreConfig & 0x3F))) {
-			const bool clamp = !(ch->volFreConfig & 0x80);
 			if (ch->volFreConfig & 0x40) {
-				// frequency slide
-				int16_t ph_inc = ch->osc_params.phase_increment + ch->volFreSlide;
-				if (clamp) {
-					ph_inc = ph_inc < 0 ? 0 : ph_inc;
-					ph_inc = ph_inc > MAX_OSC_PHASE_INC ? MAX_OSC_PHASE_INC : ph_inc;
-				}
-				ch->osc_params.phase_increment = ph_inc;
+				ch->osc_params.phase_increment = slide_quantity(
+													ch->volFreSlide,
+													ch->osc_params.phase_increment,
+													0,
+													MAX_OSC_PHASE_INC,
+													ch->volFreConfig & 0x80);
 			} else {
-				// volume slide
-				int8_t vol = ch->osc_params.vol + ch->volFreSlide;
-				if (clamp) {
-					vol = vol < 0 ? 0 : vol;
-					vol = vol > MAX_VOLUME ? MAX_VOLUME : vol;
-				}
-				ch->osc_params.vol = vol;
+				ch->osc_params.vol = slide_quantity(
+										ch->volFreSlide,
+										ch->osc_params.vol,
+										0,
+										MAX_VOLUME,
+										ch->volFreConfig & 0x80);
 			}
 			ch->volFreCount = 0;
 		}
