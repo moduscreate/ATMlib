@@ -5,9 +5,7 @@
 
 /* oscillator structure */
 struct osc {
-	uint8_t  mod;
-	uint8_t  vol;
-	uint16_t phase_increment;
+	struct osc_params params;
 	uint16_t phase_accumulator;
 };
 
@@ -38,13 +36,13 @@ void osc_reset(void)
 	memset(osccb, 0, sizeof(osccb));
 	for (uint8_t i=0; i<CH_COUNT; i++) {
 		/* set modulation to 50% duty cycle */
-		osc[i].mod = 0x7F;
+		osc[i].params.mod = 0x7F;
 	}
 	for (uint8_t i=0; i<OSC_TICK_CALLBACK_COUNT; i++) {
 		osccb[i].callback_prescaler_preset = 255;
 		osccb[i].callback_prescaler_counter = 255;
 	}
-	osc[CH_THREE].phase_increment = 0x0001; // Seed LFSR
+	osc[CH_THREE].params.phase_increment = 0x0001; // Seed LFSR
 }
 
 void osc_setactive(uint8_t active_flag)
@@ -69,19 +67,14 @@ void osc_set_tick_callback(uint8_t callback_idx, osc_tick_callback cb, void *pri
 	osccb[callback_idx].priv = priv;
 }
 
-/* bit 7 in osc_idx is set to force overide of all params */
-void osc_update_osc(uint8_t osc_idx, uint16_t phase_increment, uint8_t volume)
+/* if bit 0 in flags is set don't update phase increment */
+void osc_update_osc(uint8_t osc_idx, struct osc_params *src, uint8_t flags)
 {
-	const uint8_t idx = osc_idx & 0x03;
-	if (idx == CH_THREE) {
-		if (osc_idx & 0x80) {
-			osc[idx].phase_increment = phase_increment;
-		}
-		// Half volume, no frequency for noise channel
-		osc[idx].vol = volume >> 1;
+	if (flags & 0x1) {
+		osc[osc_idx].params.vol = src->vol;
+		osc[osc_idx].params.mod = src->mod;
 	} else {
-		osc[idx].phase_increment = phase_increment;
-		osc[idx].vol = volume;
+		osc[osc_idx].params = *src;
 	}
 }
 
@@ -268,8 +261,8 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 	[csz] "M" (sizeof(struct callback_info)),
 	[pre] "M" (offsetof(struct callback_info, callback_prescaler_counter)),
 	[pha] "M" (offsetof(struct osc, phase_accumulator)),
-	[phi] "M" (offsetof(struct osc, phase_increment)),
-	[mod] "M" (offsetof(struct osc, mod)),
-	[vol] "M" (offsetof(struct osc, vol))
+	[phi] "M" (offsetof(struct osc_params, phase_increment)),
+	[mod] "M" (offsetof(struct osc_params, mod)),
+	[vol] "M" (offsetof(struct osc_params, vol))
 	);
 }

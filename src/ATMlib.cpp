@@ -40,9 +40,8 @@ struct channel_state {
 	uint8_t counter;
 	uint8_t track;
 
-	// Shadow OSC state
-	uint16_t phase_increment;
-	uint8_t vol;
+	// Shadow OSC params
+	struct osc_params osc_params;
 
 	// Volume & Frequency slide FX
 	int8_t volFreSlide;
@@ -109,7 +108,7 @@ void ATMsynth::play(const uint8_t *song) {
 	osc_set_tick_callback(0, atm_synth_tick_handler, NULL);
 
 	// Initializes ATMsynth
-	channels[CH_THREE].phase_increment = 0x0001; // xFX
+	channels[CH_THREE].osc_params.phase_increment = 0x0001; // xFX
 	atmlib_state.channel_active_mute = 0b11110000;
 	atmlib_state.tick_rate = 25;
 	osc_set_tick_rate(0, atmlib_state.tick_rate);
@@ -126,6 +125,7 @@ void ATMsynth::play(const uint8_t *song) {
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
 		channels[n].ptr = get_track_start_ptr(pgm_read_byte(song++));
 		channels[n].delay = 0;
+		channels[n].osc_params.mod = 0x7F;
 	}
 	osc_setactive(true);
 }
@@ -158,9 +158,9 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 		if (ch->note) {
 			ch->note += ch->transConfig;
 		}
-		ch->phase_increment = note_index_2_phase_inc(ch->note);
+		ch->osc_params.phase_increment = note_index_2_phase_inc(ch->note);
 		if (!ch->volFreConfig) {
-			ch->vol = ch->reCount;
+			ch->osc_params.vol = ch->reCount;
 		}
 		if (ch->arpTiming & 0x20) {
 			ch->arpCount = 0; // ARP retriggering
@@ -169,8 +169,8 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 		// 64 … 159 : SETUP FX
 		switch (cmd - 64) {
 			case 0: // Set volume
-				ch->vol = pgm_read_byte(ch->ptr++);
-				ch->reCount = ch->vol;
+				ch->osc_params.vol = pgm_read_byte(ch->ptr++);
+				ch->reCount = ch->osc_params.vol;
 				break;
 			case 1:
 			case 4: // Slide volume/frequency ON
@@ -249,7 +249,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 95: // Stop channel
 				atmlib_state.channel_active_mute = atmlib_state.channel_active_mute ^ (1 << (n + CH_COUNT));
-				ch->vol = 0;
+				ch->osc_params.vol = 0;
 				ch->delay = 0xFFFF;
 				break;
 		}
@@ -313,7 +313,8 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 
 		// Noise retriggering
 		if (ch_index == CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
-			osc_update_osc(CH_THREE | 0x80, note_index_2_phase_inc(ch->reConfig >> 2), ch->vol);
+			ch->osc_params.phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
+			osc_update_osc(CH_THREE, &ch->osc_params, 0);
 			ch->reCount = 0;
 		}
 
@@ -324,7 +325,7 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 			const uint8_t n1 = !n0 ? 1 : n0;
 			const uint8_t n2 = n1 > LAST_NOTE ? LAST_NOTE : n1;
 			ch->note = n2;
-			ch->phase_increment = note_index_2_phase_inc(n2);
+			ch->osc_params.phase_increment = note_index_2_phase_inc(n2);
 			ch->glisCount = 0;
 		}
 
@@ -338,20 +339,20 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 				const bool clamp = !(ch->volFreConfig & 0x80);
 				if (ch->volFreConfig & 0x40) {
 					// frequency slide
-					int16_t ph_inc = ch->phase_increment + ch->volFreSlide;
+					int16_t ph_inc = ch->osc_params.phase_increment + ch->volFreSlide;
 					if (clamp) {
 						ph_inc = ph_inc < 0 ? 0 : ph_inc;
 						ph_inc = ph_inc > MAX_OSC_PHASE_INC ? MAX_OSC_PHASE_INC : ph_inc;
 					}
-					ch->phase_increment = ph_inc;
+					ch->osc_params.phase_increment = ph_inc;
 				} else {
 					// volume slide
-					int8_t vol = ch->vol + ch->volFreSlide;
+					int8_t vol = ch->osc_params.vol + ch->volFreSlide;
 					if (clamp) {
 						vol = vol < 0 ? 0 : vol;
 						vol = vol > MAX_VOLUME ? MAX_VOLUME : vol;
 					}
-					ch->vol = vol;
+					ch->osc_params.vol = vol;
 				}
 			}
 			if (ch->volFreCount++ >= (ch->volFreConfig & 0x3F)) {
@@ -384,13 +385,13 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 				}
 				// Is it correct to add ch->transConfig to arpNote? The existing note should
 				// already be transposed.
-				ch->phase_increment = note_index_2_phase_inc(arpNote + ch->transConfig);
+				ch->osc_params.phase_increment = note_index_2_phase_inc(arpNote + ch->transConfig);
 			}
 		}
 
 		// Apply Tremolo or Vibrato
 		if (ch->treviDepth) {
-			int16_t vt = ((ch->treviConfig & 0x40) ? ch->phase_increment : ch->vol);
+			int16_t vt = ((ch->treviConfig & 0x40) ? ch->osc_params.phase_increment : ch->osc_params.vol);
 			vt = (ch->treviCount & 0x80) ? (vt + ch->treviDepth) : (vt - ch->treviDepth);
 			if (vt < 0) {
 				vt = 0;
@@ -404,9 +405,9 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 				}
 			}
 			if (ch->treviConfig & 0x40) {
-				ch->phase_increment = vt;
+				ch->osc_params.phase_increment = vt;
 			} else {
-				ch->vol = vt;
+				ch->osc_params.vol = vt;
 			}
 			if ((ch->treviCount & 0x1F) < (ch->treviConfig & 0x1F)) {
 				ch->treviCount++;
@@ -429,7 +430,7 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 		}
 
 		if (!(atmlib_state.channel_active_mute & (1 << ch_index))) {
-			osc_update_osc(ch_index, ch->phase_increment, ch->vol);
+			osc_update_osc(ch_index, &ch->osc_params, ch_index != CH_THREE ? 0 : 0x1);
 		}
 	}
 

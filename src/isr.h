@@ -18,6 +18,13 @@ enum osc_channels_e {
 	CH_COUNT,
 };
 
+struct osc_params {
+	uint8_t  mod;
+	uint8_t  vol;
+	uint16_t phase_increment;
+};
+
+
 typedef void (*osc_tick_callback)(uint8_t cb_index, void *priv);
 
 void osc_setup(void);
@@ -26,7 +33,7 @@ void osc_setactive(uint8_t active_flag);
 uint8_t osc_getactive(void);
 void osc_toggleactive(void);
 
-void osc_update_osc(uint8_t osc_idx, uint16_t phase_increment, uint8_t volume);
+void osc_update_osc(uint8_t osc_idx, struct osc_params *src, uint8_t flags);
 void osc_set_tick_rate(uint8_t callback_idx, uint8_t rate_hz);
 void osc_set_tick_callback(uint8_t callback_idx, osc_tick_callback cb, void *priv);
 void osc_get_tick_callback(uint8_t callback_idx, osc_tick_callback *cb, void **priv);
