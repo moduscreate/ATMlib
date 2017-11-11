@@ -176,6 +176,7 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			case 4: // Slide volume/frequency ON
 				ch->volFreSlide = pgm_read_byte(ch->ptr++);
 				ch->volFreConfig = (cmd == 65) ? 0x00 : 0x40;
+				ch->volFreCount = 0;
 				break;
 			case 2:
 			case 5: // Slide volume/frequency ON advanced
@@ -186,7 +187,6 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 			case 3:
 			case 6: // Slide volume/frequency OFF
 				ch->volFreSlide = 0;
-				ch->volFreCount = 0;
 				break;
 			case 7: // Set Arpeggio
 				ch->arpNotes = pgm_read_byte(ch->ptr++);    // 0x40 + 0x03
@@ -197,10 +197,10 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 9: // Set Retriggering (noise)
 				ch->reConfig = pgm_read_byte(ch->ptr++);    // RETRIG: point = 1 (*4), speed = 0 (0 = fastest, 1 = faster , 2 = fast)
+				ch->reCount = 0;
 				break;
 			case 10: // Retriggering (noise) OFF
 				ch->reConfig = 0;
-				ch->reCount = 0;
 				break;
 			case 11: // ADD Transposition
 				ch->transConfig += (int8_t)pgm_read_byte(ch->ptr++);
@@ -222,10 +222,10 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 18: // Glissando
 				ch->glisConfig = pgm_read_byte(ch->ptr++);
+				ch->glisCount = 0;
 				break;
 			case 19: // Glissando OFF
 				ch->glisConfig = 0;
-				ch->glisCount = 0;
 				break;
 			case 20: // SET Note Cut
 				ch->arpNotes = 0xFF;                        // 0xFF use Note Cut
