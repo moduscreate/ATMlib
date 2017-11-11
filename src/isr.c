@@ -5,6 +5,7 @@
 
 /* oscillator structure */
 struct osc {
+	uint8_t  mod;
 	uint8_t  vol;
 	uint16_t phase_increment;
 	uint16_t phase_accumulator;
@@ -35,6 +36,10 @@ void osc_reset(void)
 	OCR4A  = OSC_DC_OFFSET;
 	memset(osc, 0, sizeof(osc));
 	memset(osccb, 0, sizeof(osccb));
+	for (uint8_t i=0; i<CH_COUNT; i++) {
+		/* set modulation to 50% duty cycle */
+		osc[i].mod = 0x7F;
+	}
 	for (uint8_t i=0; i<OSC_TICK_CALLBACK_COUNT; i++) {
 		osccb[i].callback_prescaler_preset = 255;
 		osccb[i].callback_prescaler_counter = 255;
@@ -127,13 +132,13 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	lds  r1,                    osc+2*%[osz]+%[pha]+1" ASM_EOL
 "	adc  r1,                    r18                  " ASM_EOL
 "	sts  osc+2*%[osz]+%[pha]+1, r1                   " ASM_EOL
-"; OSC 2 square waveform (75/25 duty-cycle)          " ASM_EOL
-"	mov  r18,                   r1                   " ASM_EOL
-"	lsl  r18                                         " ASM_EOL
-"	and  r18,                   r1                   " ASM_EOL
+"; OSC 2 square waveform                             " ASM_EOL
+"	lds  r27,                   osc+2*%[osz]+%[mod]  " ASM_EOL
+"	cp   r1,                    r27                  " ASM_EOL
 "	lds  r26,                   osc+2*%[osz]+%[vol]  " ASM_EOL
-"	sbrs r18,                   7                    " ASM_EOL
+"	brcs 1f                                          " ASM_EOL
 "	neg  r26                                         " ASM_EOL
+"1:                                                  " ASM_EOL
 "; OSC 0 advance phase accumulator                   " ASM_EOL
 "	lds  r18,                   osc+0*%[osz]+%[phi]  " ASM_EOL
 "	lds  r0,                    osc+0*%[osz]+%[pha]  " ASM_EOL
@@ -143,13 +148,13 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	lds  r1,                    osc+0*%[osz]+%[pha]+1" ASM_EOL
 "	adc  r1,                    r18                  " ASM_EOL
 "	sts  osc+0*%[osz]+%[pha]+1, r1                   " ASM_EOL
-"; OSC 0 pulse waveform (25/75 duty-cycle square)    " ASM_EOL
-"	mov  r18,                   r1                   " ASM_EOL
-"	lsl  r18                                         " ASM_EOL
-"	and  r18,                   r1                   " ASM_EOL
+"; OSC 0 square waveform                             " ASM_EOL
+"	lds  r27,                   osc+0*%[osz]+%[mod]  " ASM_EOL
+"	cp   r1,                    r27                  " ASM_EOL
 "	lds  r27,                   osc+0*%[osz]+%[vol]  " ASM_EOL
-"	sbrc r18,                   7                    " ASM_EOL
+"	brcs 1f                                          " ASM_EOL
 "	neg  r27                                         " ASM_EOL
+"1:                                                  " ASM_EOL
 "	add  r26,                   r27                  " ASM_EOL
 "; OSC 1 advance phase accumulator                   " ASM_EOL
 "	lds  r18,                   osc+1*%[osz]+%[phi]  " ASM_EOL
@@ -160,10 +165,13 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	lds  r1,                    osc+1*%[osz]+%[pha]+1" ASM_EOL
 "	adc  r1,                    r18                  " ASM_EOL
 "	sts  osc+1*%[osz]+%[pha]+1, r1                   " ASM_EOL
-"; OSC 1 square waveform (50/50 duty-cycle)          " ASM_EOL
+"; OSC 1 square waveform                             " ASM_EOL
+"	lds  r27,                   osc+1*%[osz]+%[mod]  " ASM_EOL
+"	cp   r1,                    r27                  " ASM_EOL
 "	lds  r27,                   osc+1*%[osz]+%[vol]  " ASM_EOL
-"	sbrc r1,                    7                    " ASM_EOL
+"	brcs 1f                                          " ASM_EOL
 "	neg  r27                                         " ASM_EOL
+"1:                                                  " ASM_EOL
 "	add  r26,                   r27                  " ASM_EOL
 "; OSC 3 noise generator                             " ASM_EOL
 "	ldi  r27,                   1                    " ASM_EOL
@@ -261,6 +269,7 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 	[pre] "M" (offsetof(struct callback_info, callback_prescaler_counter)),
 	[pha] "M" (offsetof(struct osc, phase_accumulator)),
 	[phi] "M" (offsetof(struct osc, phase_increment)),
+	[mod] "M" (offsetof(struct osc, mod)),
 	[vol] "M" (offsetof(struct osc, vol))
 	);
 }
