@@ -7,6 +7,9 @@ extern "C" {
 
 class ATMsynth {
 
+private:
+	bool setup_done = false;
+
 public:
 	ATMsynth() {};
 

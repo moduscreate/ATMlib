@@ -25,5 +25,14 @@ extern struct osc_tick_callback_info osc_tick_dispatch_table[CH_COUNT];
 
 uint16_t read_vle(const uint8_t **pp);
 
-void osc_setup(void);
-uint8_t osc_compute_callback_prescaler(uint8_t rate_hz);
+void atm_synth_setup(void);
+
+void atm_synth_play_score(const uint8_t *score);
+void atm_synth_set_score_pause(const uint8_t paused);
+void atm_synth_stop_score(void);
+uint8_t atm_synth_is_playing(void);
+
+void atm_synth_set_muted(const uint8_t channel_mask);
+uint8_t atm_synth_get_muted(void);
+void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save);
+void atm_synth_release_channel(const uint8_t channel_index, const struct osc_params *restore);

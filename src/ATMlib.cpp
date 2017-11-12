@@ -145,65 +145,90 @@ static inline const uint8_t *get_track_start_ptr(const uint8_t track_index)
 	return atmlib_state.tracks_base + pgm_read_word(&atmlib_state.track_list[track_index]);
 }
 
+void atm_synth_setup(void)
+{
+	osc_setup();
+	atmlib_state.channel_active_mute = 0b11110000;
+}
+
 // Stop playing, unload melody
-static void atmsynth_stop(void) {
-	osc_reset();
+static void atm_synth_stop(void) {
+	osc_set_tick_callback(0, NULL, NULL);
+}
+
+void atm_synth_play_score(const uint8_t *score)
+{
+	/* stop current score if any */
+	atm_synth_stop();
+	/* clean up */
 	memset(channels, 0, sizeof(channels));
 	/* mark the channel as stopped */
 	for (uint8_t n = 0; n < ARRAY_SIZE(channels); n++) {
 		channels[n].delay = 0xFFFF;
 	}
-	atmlib_state.channel_active_mute = 0b11110000;
-}
-
-void ATMsynth::play(const uint8_t *song) {
-	// cleanUp stuff first
-	atmsynth_stop();
-	osc_setup();
-
-	osc_set_tick_callback(0, atm_synth_tick_handler, NULL);
-
-	// Initializes ATMsynth
+	/* Set default score data */
 	channels[CH_THREE].osc_params.phase_increment = 0x0001; // xFX
-	atmlib_state.channel_active_mute = 0b11110000;
 	atmlib_state.tick_rate = 25;
 	osc_set_tick_rate(0, atmlib_state.tick_rate);
-
-	// Load a melody stream and start grinding samples
-	// Read track count
-	uint8_t tracks_count = pgm_read_byte(song++);
-	// Store track list pointer
-	atmlib_state.track_list = (uint16_t*)song;
-	// Store track pointer
-	song += tracks_count*sizeof(uint16_t);
-	atmlib_state.tracks_base = song + CH_COUNT;
-	// Fetch starting points for each track
+	/* Read track count */
+	uint8_t tracks_count = pgm_read_byte(score++);
+	/* Store track list pointer */
+	atmlib_state.track_list = (uint16_t*)score;
+	/* Store track pointer */
+	score += tracks_count*sizeof(uint16_t);
+	atmlib_state.tracks_base = score + CH_COUNT;
+	/* Fetch starting points for each track */
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
-		channels[n].ptr = get_track_start_ptr(pgm_read_byte(song++));
+		channels[n].ptr = get_track_start_ptr(pgm_read_byte(score++));
 		channels[n].delay = 0;
 		channels[n].osc_params.mod = 0x7F;
 	}
-	osc_setactive(true);
+	/* start playaback */
+	osc_set_tick_callback(0, atm_synth_tick_handler, NULL);
+}
+
+void ATMsynth::play(const uint8_t *score) {
+	if (!setup_done) {
+		atm_synth_setup();
+		setup_done = true;
+	}
+	atm_synth_play_score(score);
 }
 
 // Stop playing, unload melody
 void ATMsynth::stop() {
-	atmsynth_stop();
+	atm_synth_stop();
 }
 
 // Start grinding samples or Pause playback
 void ATMsynth::playPause() {
-	osc_toggleactive();
+	osc_tick_callback cb;
+	osc_get_tick_callback(0, &cb, NULL);
+	if (*cb) {
+		osc_set_tick_callback(0, NULL, NULL);
+	} else {
+		osc_set_tick_callback(0, atm_synth_tick_handler, NULL);
+	}
+}
+
+void atm_synth_set_muted(const uint8_t channel_mask)
+{
+	atmlib_state.channel_active_mute ^= (atmlib_state.channel_active_mute ^ channel_mask) & 0x0F;
+}
+
+uint8_t atm_synth_get_muted(void)
+{
+	return atmlib_state.channel_active_mute & 0x0F;
 }
 
 // Toggle mute on/off on a channel, so it can be used for sound effects
 // So you have to call it before and after the sound effect
 void ATMsynth::muteChannel(uint8_t ch) {
-	atmlib_state.channel_active_mute += (1 << ch);
+	atm_synth_set_muted((1 << ch) | atm_synth_get_muted());
 }
 
 void ATMsynth::unMuteChannel(uint8_t ch) {
-	atmlib_state.channel_active_mute &= (~(1 << ch));
+	atm_synth_set_muted((1 << ch) & atm_synth_get_muted());
 }
 
 static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_state *ch)
@@ -494,7 +519,7 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 			}
 			atmlib_state.channel_active_mute |= 0b11110000;
 		} else {
-			atmsynth_stop();
+			atm_synth_stop();
 		}
 	}
 }
