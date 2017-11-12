@@ -286,6 +286,7 @@ slide_on:
 			case 16: // SET Tremolo/Vibrato
 				ch->treviDepth = pgm_read_word(ch->ptr++);
 				ch->treviConfig = pgm_read_word(ch->ptr++) + (cmd == 78 ? 0x00 : 0x40);
+				ch->treviCount = 0;
 				break;
 			case 15:
 			case 17: // Tremolo/Vibrato OFF
