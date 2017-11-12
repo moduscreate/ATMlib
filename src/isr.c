@@ -3,6 +3,13 @@
 #include <avr/interrupt.h>
 #include "isr.h"
 
+static void osc_reset(void);
+static void osc_setactive(const uint8_t active_flag);
+/*
+uint8_t osc_getactive(void);
+void osc_toggleactive(void);
+*/
+
 /* oscillator structure */
 struct osc {
 	struct osc_params params;
@@ -28,7 +35,7 @@ void osc_setup(void)
 	OCR4C  = 0xFF;          // Resolution to 8-bit (TOP=0xFF)
 }
 
-void osc_reset(void)
+static void osc_reset(void)
 {
 	TIMSK4 = 0b00000000;
 	OCR4A  = OSC_DC_OFFSET;
@@ -45,30 +52,44 @@ void osc_reset(void)
 	osc[CH_THREE].params.phase_increment = 0x0001; // Seed LFSR
 }
 
-void osc_setactive(uint8_t active_flag)
+static void osc_setactive(const uint8_t active_flag)
 {
 	TIMSK4 = active_flag ? 0b00000100 : 0b00000000;
 }
 
+#if 0
 void osc_toggleactive(void)
 {
 	TIMSK4 = TIMSK4 ^ 0b00000100; /* toggle disable/enable interrupt */
 }
+#endif
 
-void osc_set_tick_rate(uint8_t callback_idx, uint8_t rate_hz)
+void osc_set_tick_rate(const uint8_t callback_idx, const uint8_t rate_hz)
 {
 	const uint8_t div = OSC_SAMPLERATE/ISR_PRESCALER_DIV/rate_hz-1;
 	osccb[callback_idx].callback_prescaler_preset = div;
 }
 
-void osc_set_tick_callback(uint8_t callback_idx, osc_tick_callback cb, void *priv)
+void osc_set_tick_callback(const uint8_t callback_idx, const osc_tick_callback cb, const void *priv)
 {
 	osccb[callback_idx].cb = cb;
 	osccb[callback_idx].priv = priv;
+	/* Turn interrupts on/off as needed */
+	osc_setactive(osccb[0].cb || osccb[1].cb);
+}
+
+void osc_get_tick_callback(const uint8_t callback_idx, osc_tick_callback *cb, void **priv)
+{
+	if (cb) {
+		*cb = osccb[callback_idx].cb;
+	}
+	if (priv) {
+		*priv = osccb[callback_idx].priv;
+	}
 }
 
 /* if bit 0 in flags is set don't update phase increment */
-void osc_update_osc(uint8_t osc_idx, struct osc_params *src, uint8_t flags)
+void osc_update_osc(const uint8_t osc_idx, const struct osc_params *src, const uint8_t flags)
 {
 	if (flags & 0x1) {
 		osc[osc_idx].params.vol = src->vol;
@@ -76,6 +97,11 @@ void osc_update_osc(uint8_t osc_idx, struct osc_params *src, uint8_t flags)
 	} else {
 		osc[osc_idx].params = *src;
 	}
+}
+
+void osc_save_osc(const uint8_t osc_idx, struct osc_params *dst)
+{
+	*dst = osc[osc_idx].params;
 }
 
 static __attribute__((used)) void osc_tick_handler(void)

@@ -25,15 +25,12 @@ struct osc_params {
 };
 
 
-typedef void (*osc_tick_callback)(uint8_t cb_index, void *priv);
+typedef void (*osc_tick_callback)(const uint8_t cb_index, void *priv);
 
 void osc_setup(void);
-void osc_reset(void);
-void osc_setactive(uint8_t active_flag);
-uint8_t osc_getactive(void);
-void osc_toggleactive(void);
 
-void osc_update_osc(uint8_t osc_idx, struct osc_params *src, uint8_t flags);
-void osc_set_tick_rate(uint8_t callback_idx, uint8_t rate_hz);
-void osc_set_tick_callback(uint8_t callback_idx, osc_tick_callback cb, void *priv);
-void osc_get_tick_callback(uint8_t callback_idx, osc_tick_callback *cb, void **priv);
+void osc_update_osc(const uint8_t osc_idx, const struct osc_params *src, const uint8_t flags);
+void osc_save_osc(const uint8_t osc_idx, struct osc_params *src);
+void osc_set_tick_rate(const uint8_t callback_idx, const uint8_t rate_hz);
+void osc_set_tick_callback(const uint8_t callback_idx, const osc_tick_callback cb, const void *priv);
+void osc_get_tick_callback(const uint8_t callback_idx, osc_tick_callback *cb, void **priv);
