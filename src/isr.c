@@ -84,6 +84,15 @@ static __attribute__((used)) void osc_tick_handler(void)
 		struct callback_info *cbi = &osccb[n];
 		/* channel tick is due when callback_prescaler_counter underflows */
 		if (cbi->callback_prescaler_counter != 255) {
+			if (!cbi->cb) {
+				/*
+				Reset the counter to the highest value when the
+				callback is disabled, this way when there is only
+				one callback registered (99% of the time) the disabled
+				callback is never going to trigger a tick handler.
+				*/
+				cbi->callback_prescaler_counter = 255;
+			}
 			continue;
 		}
 		if (cbi->cb) {
