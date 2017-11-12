@@ -13,6 +13,8 @@ private:
 public:
 	ATMsynth() {};
 
+	void setup(void);
+
 	// Load and play specified song
 	void play(const uint8_t *song);
 

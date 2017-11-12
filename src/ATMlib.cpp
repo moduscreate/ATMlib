@@ -151,6 +151,13 @@ void atm_synth_setup(void)
 	atmlib_state.channel_active_mute = 0b11110000;
 }
 
+void ATMsynth::setup(void) {
+	if (!setup_done) {
+		atm_synth_setup();
+		setup_done = true;
+	}
+}
+
 // Stop playing, unload melody
 static void atm_synth_stop(void) {
 	osc_set_tick_callback(0, NULL, NULL);
@@ -183,15 +190,12 @@ void atm_synth_play_score(const uint8_t *score)
 		channels[n].delay = 0;
 		channels[n].osc_params.mod = 0x7F;
 	}
-	/* start playaback */
+	/* start playback */
 	osc_set_tick_callback(0, atm_synth_tick_handler, NULL);
 }
 
 void ATMsynth::play(const uint8_t *score) {
-	if (!setup_done) {
-		atm_synth_setup();
-		setup_done = true;
-	}
+	setup();
 	atm_synth_play_score(score);
 }
 
