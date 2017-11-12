@@ -87,7 +87,7 @@ struct channel_state {
 	uint8_t note;
 
 	// Nesting
-	uint8_t *stackPointer[7];
+	const uint8_t *stackPointer[7];
 	uint8_t stackCounter[7];
 	uint8_t stackTrack[7]; // note 1
 	uint8_t stackIndex;
@@ -235,7 +235,7 @@ void ATMsynth::unMuteChannel(uint8_t ch) {
 	atm_synth_set_muted((1 << ch) & atm_synth_get_muted());
 }
 
-static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_state *ch)
+static inline void process_cmd(const uint8_t n, const uint8_t cmd, struct channel_state *ch)
 {
 	if (cmd < 64) {
 		// 0 … 63 : NOTE ON/OFF
@@ -410,6 +410,8 @@ slide_on:
 }
 
 static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
+	(void)cb_index;
+	(void)priv;
 	// for every channel start working
 	for (uint8_t ch_index = 0; ch_index < ARRAY_SIZE(channels); ch_index++)
 	{

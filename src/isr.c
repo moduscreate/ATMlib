@@ -1,5 +1,6 @@
 
 #include <stddef.h>
+#include <string.h>
 #include <avr/interrupt.h>
 #include "isr.h"
 
@@ -73,7 +74,7 @@ void osc_set_tick_rate(const uint8_t callback_idx, const uint8_t rate_hz)
 void osc_set_tick_callback(const uint8_t callback_idx, const osc_tick_callback cb, const void *priv)
 {
 	osccb[callback_idx].cb = cb;
-	osccb[callback_idx].priv = priv;
+	osccb[callback_idx].priv = (void *)priv;
 	/* Turn interrupts on/off as needed */
 	osc_setactive(osccb[0].cb || osccb[1].cb);
 }
