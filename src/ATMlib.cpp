@@ -228,20 +228,35 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				ch->osc_params.vol = pgm_read_byte(ch->ptr++);
 				ch->reCount = ch->osc_params.vol;
 				break;
-			case 1:
-			case 4: // Slide volume/frequency ON
-				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_config = 0;
-				ch->vf_slide.slide_count = (cmd == 65) ? 0x00 : 0x40;
-				break;
-			case 2:
-			case 5: // Slide volume/frequency ON advanced
+			case 1: // Slide volume ON
+				ch->vf_slide.slide_count = 0x00;
+				goto slide_on;
+			case 4: // Slide frequency ON
+				ch->vf_slide.slide_count = 0x40;
+				goto slide_on;
+			case 23: // Slide modulation ON
+				ch->vf_slide.slide_count = 0x80;
+				goto slide_on;
+			case 2: // Slide volume ON advanced
+				ch->vf_slide.slide_count = 0x00;
+				goto slide_on_adv;
+			case 5: // Slide frequency ON advanced
+				ch->vf_slide.slide_count = 0x40;
+				goto slide_on_adv;
+			case 24: // Slide modulation ON advanced
+				ch->vf_slide.slide_count = 0x80;
+				/* fall though to slide_on_adv label */
+slide_on_adv:
 				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
 				ch->vf_slide.slide_config = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_count = (cmd == 66) ? 0x00 : 0x40;
 				break;
-			case 3:
-			case 6: // Slide volume/frequency OFF
+slide_on:
+				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_config = 0;
+				break;
+			case 3: // Slide volume off
+			case 6: // Slide frequency off
+			case 25: // Modulation slide off
 				ch->vf_slide.slide_amount = 0;
 				break;
 			case 7: // Set Arpeggio
@@ -292,19 +307,6 @@ static inline process_cmd(const uint8_t n, const uint8_t cmd, struct channel_sta
 				break;
 			case 22: // Set modulation
 				ch->osc_params.mod = pgm_read_byte(ch->ptr++);
-				break;
-			case 23: // Set modulation slide
-				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_config = 0;
-				ch->vf_slide.slide_count = 0x80;
-				break;
-			case 24: // Set advanced modulation slide
-				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_config = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_count = 0x80;
-				break;
-			case 25: // Modulation slide off
-				ch->vf_slide.slide_amount = 0;
 				break;
 			case 92: // ADD tempo
 				atmlib_state.tick_rate += pgm_read_byte(ch->ptr++);
