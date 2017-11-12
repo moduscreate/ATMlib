@@ -31,7 +31,7 @@ struct slide_params {
 };
 
 /* flags: bit 7 = 0 clamp, 1 wraparound */
-static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
+uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
 {
 	const bool clamp = !(flags & 0x80);
 	const int16_t res = value + amount;
@@ -382,11 +382,12 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 	for (uint8_t ch_index = 0; ch_index < ARRAY_SIZE(channels); ch_index++)
 	{
 		struct channel_state *ch = &channels[ch_index];
+		bool noise_retrigger = false;
 
 		// Noise retriggering
 		if (ch_index == CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
 			ch->osc_params.phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
-			osc_update_osc(CH_THREE, &ch->osc_params, 0);
+			noise_retrigger = true;
 			ch->reCount = 0;
 		}
 
@@ -472,7 +473,8 @@ static void atm_synth_tick_handler(uint8_t cb_index, void *priv) {
 		}
 
 		if (!(atmlib_state.channel_active_mute & (1 << ch_index))) {
-			osc_update_osc(ch_index, &ch->osc_params, ch_index != CH_THREE ? 0 : 0x1);
+			const uint8_t flags = (noise_retrigger || ch_index != CH_THREE) ? 0 : 0x1;
+			osc_update_osc(ch_index, &ch->osc_params, flags);
 		}
 	}
 
