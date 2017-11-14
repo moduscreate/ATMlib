@@ -14,6 +14,7 @@ struct callback_info {
 	void *priv;
 };
 
+uint8_t __attribute__((used)) osc_isr_reenter = 0;
 uint8_t osc_int_count __attribute__((used));
 struct osc_params osc_params_array[CH_COUNT];
 uint16_t osc_pha_acc_array[CH_COUNT] __attribute__((used));
@@ -66,6 +67,10 @@ void osc_set_tick_callback(const uint8_t callback_idx, const osc_tick_callback c
 {
 	osc_cb[callback_idx].cb = cb;
 	osc_cb[callback_idx].priv = (void *)priv;
+	if (cb) {
+		/* trigger callback ASAP */
+		osc_cb[callback_idx].callback_prescaler_counter = 0;
+	}
 	/* Turn interrupts on/off as needed */
 	osc_setactive(osc_cb[0].cb || osc_cb[1].cb);
 }
@@ -231,7 +236,11 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	pop  r2                                                        " ASM_EOL
 "	reti                                                           " ASM_EOL
 "call_playroutine:                                                 " ASM_EOL
-
+"	lds  r26,                   osc_isr_reenter                    " ASM_EOL
+"	cpi  r26,                   0                                  " ASM_EOL
+"	brne isr_done                                                  " ASM_EOL
+"	;r27 is always nonzero when reaching this point                " ASM_EOL
+"	sts  osc_isr_reenter,       r27                                " ASM_EOL
 "	sei                                                            " ASM_EOL
 "	push r19                                                       " ASM_EOL
 "	push r20                                                       " ASM_EOL
@@ -246,6 +255,7 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	clr  r1                                                        " ASM_EOL
 "	call osc_tick_handler                                          " ASM_EOL
 
+"	sts  osc_isr_reenter,       r1                                 " ASM_EOL
 "	pop  r31                                                       " ASM_EOL
 "	pop  r30                                                       " ASM_EOL
 "	pop  r25                                                       " ASM_EOL
