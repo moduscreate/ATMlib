@@ -378,20 +378,23 @@ slide_on:
 		// 225 … 251 : RESERVED
 	} else if (cmd == 252 || cmd == 253) {
 		// 252 (253) : CALL (REPEATEDLY)
-		uint8_t new_counter = cmd == 252 ? 0 : pgm_read_byte(ch->ptr++);
-		uint8_t new_track = pgm_read_byte(ch->ptr++);
+		/* ignore call command if the stack is full */
+		if (ch->stackIndex < ATM_PATTERN_STACK_DEPTH) {
+			uint8_t new_counter = cmd == 252 ? 0 : pgm_read_byte(ch->ptr++);
+			uint8_t new_track = pgm_read_byte(ch->ptr++);
 
-		if (new_track != ch->track) {
-			// Stack PUSH
-			ch->stackCounter[ch->stackIndex] = ch->counter;
-			ch->stackTrack[ch->stackIndex] = ch->track; // note 1
-			ch->stackPointer[ch->stackIndex] = ch->ptr;
-			ch->stackIndex++;
-			ch->track = new_track;
+			if (new_track != ch->track) {
+				// Stack PUSH
+				ch->stackCounter[ch->stackIndex] = ch->counter;
+				ch->stackTrack[ch->stackIndex] = ch->track; // note 1
+				ch->stackPointer[ch->stackIndex] = ch->ptr;
+				ch->stackIndex++;
+				ch->track = new_track;
+			}
+
+			ch->counter = new_counter;
+			ch->ptr = get_track_start_ptr(score_state, ch->track);
 		}
-
-		ch->counter = new_counter;
-		ch->ptr = get_track_start_ptr(score_state, ch->track);
 	} else if (cmd == 254) {
 		// 254 : RETURN
 		if (ch->counter > 0 || ch->stackIndex == 0) {

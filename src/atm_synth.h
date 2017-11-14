@@ -4,6 +4,9 @@
 
 #include "isr.h"
 
+#define ATM_PATTERN_STACK_DEPTH (3)
+
+
 struct atmlib_state {
 	const uint16_t *track_list;
 	const uint8_t *tracks_base;
@@ -36,9 +39,9 @@ struct channel_state {
 	uint8_t note;
 
 	// Nesting
-	const uint8_t *stackPointer[7];
-	uint8_t stackCounter[7];
-	uint8_t stackTrack[7]; // note 1
+	const uint8_t *stackPointer[ATM_PATTERN_STACK_DEPTH];
+	uint8_t stackCounter[ATM_PATTERN_STACK_DEPTH];
+	uint8_t stackTrack[ATM_PATTERN_STACK_DEPTH]; // note 1
 	uint8_t stackIndex;
 	uint8_t repeatPoint;
 
