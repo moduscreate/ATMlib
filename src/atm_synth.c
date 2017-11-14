@@ -372,9 +372,7 @@ slide_on:
 				score_state->tick_rate = next_pattern_byte(ch);
 				break;
 			case 94: // Goto advanced
-				for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) {
-					channels[i].repeatPoint = next_pattern_byte(ch);
-				}
+				ch->repeat_point = next_pattern_byte(ch);
 				break;
 			case 95: // Stop channel
 				goto stop_channel;
@@ -556,19 +554,19 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 		osc_set_tick_rate(0, atmlib_state.tick_rate);
 	}
 
-	// if all channels are inactive, stop playing or check for repeat
+	/* if all channels are inactive, stop playing or check for repeat */
 	if (!(atmlib_state.channel_active_mute & 0xF0)) {
-		uint8_t repeatSong = 0;
-		for (uint8_t j = 0; j < ARRAY_SIZE(channels); j++) {
-			repeatSong += channels[j].repeatPoint;
-		}
-		if (repeatSong) {
-			for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
-				pattern_cmd_ptr(&channels[k]) = get_track_start_ptr(&atmlib_state, channels[k].repeatPoint);
-				channels[k].delay = 0;
+		for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
+			struct channel_state *const ch = &channels[k];
+			/* a quirk in the original implementation does not allow to loop to pattern 0 */
+			if (!ch->repeat_point) {
+				continue;
 			}
-			atmlib_state.channel_active_mute |= 0b11110000;
-		} else {
+			pattern_cmd_ptr(ch) = get_track_start_ptr(&atmlib_state, ch->repeat_point);
+			ch->delay = 0;
+			atmlib_state.channel_active_mute |= (1<<(k+CH_COUNT));
+		}
+		if (!(atmlib_state.channel_active_mute & 0xF0)) {
 			atm_synth_stop_score();
 		}
 	}

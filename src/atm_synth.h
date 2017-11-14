@@ -47,7 +47,7 @@ struct channel_state {
 	// Nesting
 	struct pattern_state pstack[ATM_PATTERN_STACK_DEPTH];
 	uint8_t pstack_index;
-	uint8_t repeatPoint;
+	uint8_t repeat_point;
 
 	struct osc_params *osc_params;
 
