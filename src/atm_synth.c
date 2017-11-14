@@ -28,6 +28,17 @@ struct channel_state channels[CH_COUNT];
 static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv);
 static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
 
+/*
+static uint8_t next_pattern_byte(struct channel_state *ch)
+{
+	return pgm_read_byte(ch->pstack[ch->pstack_index].next_cmd_ptr++);
+}
+*/
+#define next_pattern_byte(ch_ptr) (pgm_read_byte((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr++))
+#define pattern_index(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].pattern_index)
+#define pattern_cmd_ptr(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr)
+#define pattern_repetition_counter(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].repetitions_counter)
+
 /* flags: bit 7 = 0 clamp, 1 wraparound */
 static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
 {
@@ -149,7 +160,7 @@ void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx,
 	/* Set tick rate to ATMLIB_TICKRATE_MAX to trigger ASAP */
 	sfx_state->track_info.tick_rate = 25;
 	osc_set_tick_rate(1, 25);
-	sfx_state->channel_state.ptr = get_track_start_ptr(&sfx_state->track_info, 0);
+	pattern_cmd_ptr(&sfx_state->channel_state) = get_track_start_ptr(&sfx_state->track_info, 0);
 	/* Start SFX */
 	osc_set_tick_callback(1, atm_synth_sfx_tick_handler, sfx_state);
 }
@@ -186,7 +197,7 @@ void atm_synth_play_score(const uint8_t *score)
 		struct osc_params *o = channels[n].osc_params;
 		memset(&channels[n], 0, sizeof(channels[0]));
 		channels[n].osc_params = o;
-		channels[n].ptr = get_track_start_ptr(&atmlib_state, pgm_read_byte(score++));
+		pattern_cmd_ptr(&channels[n]) = get_track_start_ptr(&atmlib_state, pgm_read_byte(score++));
 		channels[n].delay = 0;
 		/* this is not entirely correct because the channel may be in use by SFX */
 		osc_params_array[n].mod = 0x7F;
@@ -270,7 +281,7 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 		// 64 … 159 : SETUP FX
 		switch (cmd - 64) {
 			case 0: // Set volume
-				ch->osc_params->vol = pgm_read_byte(ch->ptr++);
+				ch->osc_params->vol = next_pattern_byte(ch);
 				ch->reCount = ch->osc_params->vol;
 				break;
 			case 1: // Slide volume ON
@@ -292,11 +303,11 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 				ch->vf_slide.slide_count = 0x80;
 				/* fall though to slide_on_adv label */
 slide_on_adv:
-				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
-				ch->vf_slide.slide_config = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_amount = next_pattern_byte(ch);
+				ch->vf_slide.slide_config = next_pattern_byte(ch);
 				break;
 slide_on:
-				ch->vf_slide.slide_amount = pgm_read_byte(ch->ptr++);
+				ch->vf_slide.slide_amount = next_pattern_byte(ch);
 				ch->vf_slide.slide_config = 0;
 				break;
 			case 3: // Slide volume off
@@ -305,32 +316,32 @@ slide_on:
 				ch->vf_slide.slide_amount = 0;
 				break;
 			case 7: // Set Arpeggio
-				ch->arpNotes = pgm_read_byte(ch->ptr++);    // 0x40 + 0x03
-				ch->arpTiming = pgm_read_byte(ch->ptr++);   // 0x40 (no third note) + 0x20 (toggle retrigger) + amount
+				ch->arpNotes = next_pattern_byte(ch);    // 0x40 + 0x03
+				ch->arpTiming = next_pattern_byte(ch);   // 0x40 (no third note) + 0x20 (toggle retrigger) + amount
 				break;
 			case 8: // Arpeggio OFF
 				ch->arpNotes = 0;
 				break;
 			case 9: // Set Retriggering (noise)
-				ch->reConfig = pgm_read_byte(ch->ptr++);    // RETRIG: point = 1 (*4), speed = 0 (0 = fastest, 1 = faster , 2 = fast)
+				ch->reConfig = next_pattern_byte(ch);    // RETRIG: point = 1 (*4), speed = 0 (0 = fastest, 1 = faster , 2 = fast)
 				ch->reCount = 0;
 				break;
 			case 10: // Retriggering (noise) OFF
 				ch->reConfig = 0;
 				break;
 			case 11: // ADD Transposition
-				ch->transConfig += (int8_t)pgm_read_byte(ch->ptr++);
+				ch->transConfig += (int8_t)next_pattern_byte(ch);
 				break;
 			case 12: // SET Transposition
-				ch->transConfig = pgm_read_byte(ch->ptr++);
+				ch->transConfig = next_pattern_byte(ch);
 				break;
 			case 13: // Transposition OFF
 				ch->transConfig = 0;
 				break;
 			case 14:
 			case 16: // SET Tremolo/Vibrato
-				ch->treviDepth = pgm_read_word(ch->ptr++);
-				ch->treviConfig = pgm_read_word(ch->ptr++) + (cmd == 78 ? 0x00 : 0x40);
+				ch->treviDepth = next_pattern_byte(ch);
+				ch->treviConfig = next_pattern_byte(ch) + (cmd == 78 ? 0x00 : 0x40);
 				ch->treviCount = 0;
 				break;
 			case 15:
@@ -338,7 +349,7 @@ slide_on:
 				ch->treviDepth = 0;
 				break;
 			case 18: // Glissando
-				ch->glisConfig = pgm_read_byte(ch->ptr++);
+				ch->glisConfig = next_pattern_byte(ch);
 				ch->glisCount = 0;
 				break;
 			case 19: // Glissando OFF
@@ -346,23 +357,23 @@ slide_on:
 				break;
 			case 20: // SET Note Cut
 				ch->arpNotes = 0xFF;                        // 0xFF use Note Cut
-				ch->arpTiming = pgm_read_byte(ch->ptr++);   // tick amount
+				ch->arpTiming = next_pattern_byte(ch);   // tick amount
 				break;
 			case 21: // Note Cut OFF
 				ch->arpNotes = 0;
 				break;
 			case 22: // Set modulation
-				ch->osc_params->mod = pgm_read_byte(ch->ptr++);
+				ch->osc_params->mod = next_pattern_byte(ch);
 				break;
 			case 92: // ADD tempo
-				score_state->tick_rate += pgm_read_byte(ch->ptr++);
+				score_state->tick_rate += next_pattern_byte(ch);
 				break;
 			case 93: // SET tempo
-				score_state->tick_rate = pgm_read_byte(ch->ptr++);
+				score_state->tick_rate = next_pattern_byte(ch);
 				break;
 			case 94: // Goto advanced
 				for (uint8_t i = 0; i < ARRAY_SIZE(channels); i++) {
-					channels[i].repeatPoint = pgm_read_byte(ch->ptr++);
+					channels[i].repeatPoint = next_pattern_byte(ch);
 				}
 				break;
 			case 95: // Stop channel
@@ -373,54 +384,48 @@ slide_on:
 		ch->delay = cmd - 159;
 	} else if (cmd == 224) {
 		// 224: LONG DELAY
-		ch->delay = read_vle(&ch->ptr) + 65;
+		ch->delay = read_vle(&pattern_cmd_ptr(ch)) + 65;
 	} else if (cmd < 252) {
 		// 225 … 251 : RESERVED
 	} else if (cmd == 252 || cmd == 253) {
 		// 252 (253) : CALL (REPEATEDLY)
 		/* ignore call command if the stack is full */
-		if (ch->stackIndex < ATM_PATTERN_STACK_DEPTH) {
-			uint8_t new_counter = cmd == 252 ? 0 : pgm_read_byte(ch->ptr++);
-			uint8_t new_track = pgm_read_byte(ch->ptr++);
+		if (ch->pstack_index < ATM_PATTERN_STACK_DEPTH-1) {
+			uint8_t new_counter = cmd == 252 ? 0 : next_pattern_byte(ch);
+			uint8_t new_track = next_pattern_byte(ch);
 
-			if (new_track != ch->track) {
+			if (new_track != pattern_index(ch)) {
 				// Stack PUSH
-				ch->stackCounter[ch->stackIndex] = ch->counter;
-				ch->stackTrack[ch->stackIndex] = ch->track; // note 1
-				ch->stackPointer[ch->stackIndex] = ch->ptr;
-				ch->stackIndex++;
-				ch->track = new_track;
+				ch->pstack_index++;
+				pattern_index(ch) = new_track;
 			}
 
-			ch->counter = new_counter;
-			ch->ptr = get_track_start_ptr(score_state, ch->track);
+			pattern_repetition_counter(ch) = new_counter;
+			pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
 		}
 	} else if (cmd == 254) {
 		// 254 : RETURN
-		if (ch->counter > 0 || ch->stackIndex == 0) {
+		if (pattern_repetition_counter(ch) > 0 || ch->pstack_index == 0) {
 			// Repeat track
-			if (ch->counter) {
-				ch->counter--;
+			if (pattern_repetition_counter(ch)) {
+				pattern_repetition_counter(ch)--;
 			}
-			ch->ptr = get_track_start_ptr(score_state, ch->track);
+			pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
 			//asm volatile ("  jmp 0"); // reboot
 		} else {
 			// Check stack depth
-			if (ch->stackIndex == 0) {
+			if (ch->pstack_index == 0) {
 				// Stop the channel
 				ch->delay = 0xFFFF;
 				//goto stop_channel;
 			} else {
 				// Stack POP
-				ch->stackIndex--;
-				ch->ptr = ch->stackPointer[ch->stackIndex];
-				ch->counter = ch->stackCounter[ch->stackIndex];
-				ch->track = ch->stackTrack[ch->stackIndex]; // note 1
+				ch->pstack_index--;
 			}
 		}
 	} else if (cmd == 255) {
 		// 255 : EMBEDDED DATA
-		ch->ptr += read_vle(&ch->ptr);
+		pattern_cmd_ptr(ch) += read_vle(&pattern_cmd_ptr(ch));
 	}
 	return;
 
@@ -514,7 +519,7 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 	}
 
 	while (ch->delay == 0) {
-		const uint8_t cmd = pgm_read_byte(ch->ptr++);
+		const uint8_t cmd = next_pattern_byte(ch);
 		process_cmd(ch_index, cmd, score_state, ch);
 	}
 
@@ -559,7 +564,7 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 		}
 		if (repeatSong) {
 			for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
-				channels[k].ptr = get_track_start_ptr(&atmlib_state, channels[k].repeatPoint);
+				pattern_cmd_ptr(&channels[k]) = get_track_start_ptr(&atmlib_state, channels[k].repeatPoint);
 				channels[k].delay = 0;
 			}
 			atmlib_state.channel_active_mute |= 0b11110000;

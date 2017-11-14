@@ -34,21 +34,20 @@ struct slide_params {
 	uint8_t slide_count;
 };
 
+struct pattern_state {
+	const uint8_t *next_cmd_ptr;
+	uint8_t pattern_index; /* TODO: look into removing this */
+	uint8_t repetitions_counter;
+};
+
 struct channel_state {
-	const uint8_t *ptr;
 	uint8_t note;
+	uint16_t delay;
 
 	// Nesting
-	const uint8_t *stackPointer[ATM_PATTERN_STACK_DEPTH];
-	uint8_t stackCounter[ATM_PATTERN_STACK_DEPTH];
-	uint8_t stackTrack[ATM_PATTERN_STACK_DEPTH]; // note 1
-	uint8_t stackIndex;
+	struct pattern_state pstack[ATM_PATTERN_STACK_DEPTH];
+	uint8_t pstack_index;
 	uint8_t repeatPoint;
-
-	// Looping
-	uint16_t delay;
-	uint8_t counter;
-	uint8_t track;
 
 	struct osc_params *osc_params;
 
