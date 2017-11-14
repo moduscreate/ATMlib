@@ -28,12 +28,6 @@ struct channel_state channels[CH_COUNT];
 static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv);
 static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
 
-/*
-static uint8_t next_pattern_byte(struct channel_state *ch)
-{
-	return pgm_read_byte(ch->pstack[ch->pstack_index].next_cmd_ptr++);
-}
-*/
 #define next_pattern_byte(ch_ptr) (pgm_read_byte((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr++))
 #define pattern_index(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].pattern_index)
 #define pattern_cmd_ptr(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr)
@@ -241,20 +235,6 @@ void atm_synth_set_score_paused(const uint8_t paused)
 void atm_synth_set_muted(const uint8_t channel_mask)
 {
 	atmlib_state.channel_active_mute ^= (atmlib_state.channel_active_mute ^ channel_mask) & 0x0F;
-#if 0
-	const uint8_t changed_mask = atmlib_state.channel_active_mute ^ channel_mask;
-	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
-		const uint8_t mask = (1<<n);
-		if (!(changed_mask & mask)) {
-			continue;
-		}
-		if (channel_mask & mask) {
-			channels[n].osc_params->vol = 0;
-		} else {
-			channels[n].osc_params->vol = channels[n].reCount;
-		}
-	}
-#endif
 }
 
 uint8_t atm_synth_get_muted(void)
