@@ -83,7 +83,6 @@ struct mod_sfx_state {
 };
 
 extern struct atmlib_state atmlib_state;
-extern struct osc_tick_callback_info osc_tick_dispatch_table[CH_COUNT];
 
 uint16_t read_vle(const uint8_t **pp);
 
