@@ -23,7 +23,7 @@ const uint16_t noteTable[64] PROGMEM = {
 };
 #define note_index_2_phase_inc(note_idx) (pgm_read_word(&noteTable[(note_idx) & 0x3F]))
 
-struct channel_state channels[CH_COUNT];
+struct channel_state channels[OSC_CH_COUNT];
 
 static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv);
 static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
@@ -81,7 +81,7 @@ static void slidefx(struct slide_params *slide_params, struct osc_params *osc_pa
 													slide_params->slide_amount,
 													osc_params->phase_increment,
 													0,
-													MAX_OSC_PHASE_INC,
+													OSC_PHASE_INC_MAX,
 													slide_params->slide_config & 0x80);
 					break;
 				case 0x80:
@@ -149,7 +149,7 @@ void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx,
 	sfx_state->channel_state.osc_params = &osc_params_array[ch_index];
 	sfx_state->track_info.track_list = sfx->tracks_offset;
 	sfx_state->track_info.tracks_base = ((uint8_t*)sfx);
-	sfx_state->track_info.channel_active_mute = 1 << (ch_index+CH_COUNT);
+	sfx_state->track_info.channel_active_mute = 1 << (ch_index+OSC_CH_COUNT);
 	osc_params_array[ch_index].mod = 0x7F;
 	/* Set tick rate to ATMLIB_TICKRATE_MAX to trigger ASAP */
 	sfx_state->track_info.tick_rate = 25;
@@ -175,7 +175,7 @@ void atm_synth_play_score(const uint8_t *score)
 	/* stop current score if any */
 	atm_synth_stop_score();
 	/* Set default score data */
-	//osc_params_array[CH_THREE].phase_increment = 0x0001; // xFX
+	//osc_params_array[OSC_CH_THREE].phase_increment = 0x0001; // xFX
 	atmlib_state.channel_active_mute |= 0b11110000;
 	atmlib_state.tick_rate = 25;
 	osc_set_tick_rate(0, atmlib_state.tick_rate);
@@ -185,7 +185,7 @@ void atm_synth_play_score(const uint8_t *score)
 	atmlib_state.track_list = (uint16_t*)score;
 	/* Store track pointer */
 	score += tracks_count*sizeof(uint16_t);
-	atmlib_state.tracks_base = score + CH_COUNT;
+	atmlib_state.tracks_base = score + OSC_CH_COUNT;
 	/* Fetch starting points for each track */
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
 		struct osc_params *o = channels[n].osc_params;
@@ -408,7 +408,7 @@ slide_on:
 	return;
 
 stop_channel:
-	score_state->channel_active_mute = score_state->channel_active_mute ^ (1 << (ch_index + CH_COUNT));
+	score_state->channel_active_mute = score_state->channel_active_mute ^ (1 << (ch_index + OSC_CH_COUNT));
 	ch->osc_params->vol = 0;
 	ch->delay = 0xFFFF;
 }
@@ -418,7 +418,7 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 	bool noise_retrigger = false;
 
 	// Noise retriggering
-	if (ch_index == CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
+	if (ch_index == OSC_CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
 		ch->osc_params->phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
 		noise_retrigger = true;
 		ch->reCount = 0;
@@ -472,8 +472,8 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 		if (vt < 0) {
 			vt = 0;
 		} else if (ch->treviConfig & 0x40) {
-			if (vt > MAX_OSC_PHASE_INC) {
-				vt = MAX_OSC_PHASE_INC;
+			if (vt > OSC_PHASE_INC_MAX) {
+				vt = OSC_PHASE_INC_MAX;
 			}
 		} else if (!(ch->treviConfig & 0x40)) {
 			if (vt > MAX_VOLUME) {
@@ -506,7 +506,7 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 	}
 
 	if (!(score_state->channel_active_mute & (1 << ch_index))) {
-		const uint8_t flags = (noise_retrigger || ch_index != CH_THREE) ? 0 : 0x1;
+		const uint8_t flags = (noise_retrigger || ch_index != OSC_CH_THREE) ? 0 : 0x1;
 		osc_update_osc(ch_index, ch->osc_params, flags);
 	}
 }
@@ -544,7 +544,7 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 			}
 			pattern_cmd_ptr(ch) = get_track_start_ptr(&atmlib_state, ch->repeat_point);
 			ch->delay = 0;
-			atmlib_state.channel_active_mute |= (1<<(k+CH_COUNT));
+			atmlib_state.channel_active_mute |= (1<<(k+OSC_CH_COUNT));
 		}
 		if (!(atmlib_state.channel_active_mute & 0xF0)) {
 			atm_synth_stop_score();

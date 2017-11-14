@@ -16,8 +16,8 @@ struct callback_info {
 
 uint8_t __attribute__((used)) osc_isr_reenter = 0;
 uint8_t osc_int_count __attribute__((used));
-struct osc_params osc_params_array[CH_COUNT];
-uint16_t osc_pha_acc_array[CH_COUNT] __attribute__((used));
+struct osc_params osc_params_array[OSC_CH_COUNT];
+uint16_t osc_pha_acc_array[OSC_CH_COUNT] __attribute__((used));
 struct callback_info osc_cb[OSC_TICK_CALLBACK_COUNT];
 
 void osc_setup(void)
@@ -34,7 +34,7 @@ static void osc_reset(void)
 	OCR4A  = OSC_DC_OFFSET;
 	memset(osc_params_array, 0, sizeof(osc_params_array));
 	memset(osc_cb, 0, sizeof(osc_cb));
-	for (uint8_t i=0; i<CH_COUNT; i++) {
+	for (uint8_t i=0; i<OSC_CH_COUNT; i++) {
 		/* set modulation to 50% duty cycle */
 		osc_params_array[i].mod = 0x7F;
 	}
@@ -42,7 +42,7 @@ static void osc_reset(void)
 		osc_cb[i].callback_prescaler_preset = 255;
 		osc_cb[i].callback_prescaler_counter = 255;
 	}
-	osc_params_array[CH_THREE].phase_increment = 0x0001; // Seed LFSR
+	osc_params_array[OSC_CH_THREE].phase_increment = 0x0001; // Seed LFSR
 }
 
 static void osc_setactive(const uint8_t active_flag)
@@ -59,7 +59,7 @@ void osc_toggleactive(void)
 
 void osc_set_tick_rate(const uint8_t callback_idx, const uint16_t rate_hz)
 {
-	const uint8_t div = OSC_SAMPLERATE/ISR_PRESCALER_DIV/rate_hz-1;
+	const uint8_t div = OSC_SAMPLERATE/OSC_ISR_PRESCALER_DIV/rate_hz-1;
 	osc_cb[callback_idx].callback_prescaler_preset = div;
 }
 
@@ -276,7 +276,7 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	reti                                                           " ASM_EOL
 	::
 	[reg] "M" _SFR_MEM_ADDR(OCR4A),
-	[div] "M" (ISR_PRESCALER_DIV*2),
+	[div] "M" (OSC_ISR_PRESCALER_DIV*2),
 	[dc]  "M" OSC_DC_OFFSET,
 	[osz] "M" (sizeof(struct osc_params)),
 	[asz] "M" (sizeof(uint16_t)),
