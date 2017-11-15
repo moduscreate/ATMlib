@@ -258,14 +258,8 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 			ch->note += ch->trans_config;
 		}
 		ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->note);
-
-#if ATM_HAS_FX_SLIDE
-		if (!ch->vf_slide.slide_config) {
-			ch->dst_osc_params->vol = ch->vol;
-		}
-#else
 		ch->dst_osc_params->vol = ch->vol;
-#endif
+		ch->dst_osc_params->mod = ch->mod;
 
 #if ATM_HAS_FX_NOTE_RETRIG
 		if (ch->arpTiming & 0x20) {
@@ -276,8 +270,11 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 		// 64 … 159 : SETUP FX
 		switch (cmd - 64) {
 			case 0: // Set volume
-				ch->dst_osc_params->vol = next_pattern_byte(ch);
-				ch->vol = ch->dst_osc_params->vol;
+				{
+				const uint8_t vol = next_pattern_byte(ch);
+				ch->vol = vol;
+				ch->dst_osc_params->vol = vol;
+				}
 				break;
 
 #if ATM_HAS_FX_SLIDE
@@ -378,7 +375,11 @@ slide_on:
 #endif
 
 			case 22: // Set modulation
-				ch->dst_osc_params->mod = next_pattern_byte(ch);
+				{
+				const uint8_t mod = next_pattern_byte(ch);
+				ch->mod = mod;
+				ch->dst_osc_params->mod = mod;
+				}
 				break;
 			case 92: // ADD tempo
 				score_state->tick_rate += next_pattern_byte(ch);

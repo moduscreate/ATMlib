@@ -75,6 +75,7 @@ struct pattern_state {
 struct channel_state {
 	uint8_t note;
 	uint8_t vol;
+	uint8_t mod;
 	uint16_t delay;
 	// Transposition FX
 	int8_t trans_config;
