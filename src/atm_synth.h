@@ -6,6 +6,35 @@
 
 #define ATM_PATTERN_STACK_DEPTH (3)
 
+/* Disable all FX to save space */
+/* #define ATM_HAS_FX_NONE (1) */
+
+#if ATM_HAS_FX_NONE
+#define ATM_HAS_FX_ARPEGGIO (0)
+#define ATM_HAS_FX_NOTCUT (0)
+#define ATM_HAS_FX_NOISE_RETRIG (0)
+#define ATM_HAS_FX_VOL_SLIDE (0)
+#define ATM_HAS_FX_FREQ_SLIDE (0)
+#define ATM_HAS_FX_MOD_SLIDE (0)
+#define ATM_HAS_FX_VIBRATO (0)
+#define ATM_HAS_FX_TREMOLO (0)
+#define ATM_HAS_FX_GLISSANDO (0)
+#else
+#define ATM_HAS_FX_ARPEGGIO (1)
+#define ATM_HAS_FX_NOTCUT (1)
+#define ATM_HAS_FX_NOISE_RETRIG (1)
+#define ATM_HAS_FX_VOL_SLIDE (1)
+#define ATM_HAS_FX_FREQ_SLIDE (1)
+#define ATM_HAS_FX_MOD_SLIDE (1)
+#define ATM_HAS_FX_VIBRATO (1)
+#define ATM_HAS_FX_TREMOLO (1)
+#define ATM_HAS_FX_GLISSANDO (1)
+#endif
+
+#define ATM_HAS_FX_NOTE_RETRIG (ATM_HAS_FX_ARPEGGIO || ATM_HAS_FX_NOTCUT)
+#define ATM_HAS_FX_SLIDE (ATM_HAS_FX_VOL_SLIDE || ATM_HAS_FX_FREQ_SLIDE || ATM_HAS_FX_MOD_SLIDE)
+#define ATM_HAS_FX_LFO (ATM_HAS_FX_TREMOLO || ATM_HAS_FX_VIBRATO)
+
 
 struct atmlib_state {
 	const uint8_t *score_start;
@@ -27,11 +56,15 @@ struct mod_sfx {
 	uint16_t tracks_offset[];
 };
 
+#if ATM_HAS_FX_SLIDE
+
 struct slide_params {
 	int8_t slide_amount;
 	uint8_t slide_config;
 	uint8_t slide_count;
 };
+
+#endif
 
 struct pattern_state {
 	const uint8_t *next_cmd_ptr;
@@ -50,30 +83,39 @@ struct channel_state {
 
 	struct osc_params *osc_params;
 
+#if ATM_HAS_FX_SLIDE
 	// Volume & Frequency slide FX
 	struct slide_params vf_slide;
+#endif
 
+#if ATM_HAS_FX_NOTE_RETRIG
 	// Arpeggio or Note Cut FX
 	uint8_t arpNotes;       // notes: base, base+[7:4], base+[7:4]+[3:0], if FF => note cut ON
 	uint8_t arpTiming;      // [7] = reserved, [6] = not third note ,[5] = retrigger, [4:0] = tick count
 	uint8_t arpCount;
+#endif
 
+#if ATM_HAS_FX_NOISE_RETRIG
 	// Retrig FX
 	uint8_t reConfig;       // [7:2] = , [1:0] = speed // used for the noise channel
+#endif
 	uint8_t reCount;        // also using this as a buffer for volume retrig on all channels
 
 	// Transposition FX
 	int8_t transConfig;
 
+#if ATM_HAS_FX_LFO
 	// Tremolo or Vibrato FX
 	uint8_t treviDepth;
 	uint8_t treviConfig;
 	uint8_t treviCount;
+#endif
 
+#if ATM_HAS_FX_GLISSANDO
 	// Glissando FX
 	int8_t glisConfig;
 	uint8_t glisCount;
-
+#endif
 };
 
 struct mod_sfx_state {

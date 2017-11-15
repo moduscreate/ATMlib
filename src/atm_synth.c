@@ -33,21 +33,6 @@ static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
 #define pattern_cmd_ptr(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr)
 #define pattern_repetition_counter(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].repetitions_counter)
 
-/* flags: bit 7 = 0 clamp, 1 wraparound */
-static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
-{
-	const bool clamp = !(flags & 0x80);
-	const int16_t res = value + amount;
-	if (clamp) {
-		if (res < bottom) {
-			return bottom;
-		} else if (res > top) {
-			return top;
-		}
-	}
-	return res;
-}
-
 static void osc_update_osc(const uint8_t osc_idx, const struct osc_params *src, const uint8_t flags)
 {
 	struct osc_params *dst = channels[osc_idx].osc_params;
@@ -63,11 +48,29 @@ static void osc_update_osc(const uint8_t osc_idx, const struct osc_params *src, 
 	}
 }
 
+#if ATM_HAS_FX_SLIDE
+
+/* flags: bit 7 = 0 clamp, 1 wraparound */
+static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
+{
+	const bool clamp = !(flags & 0x80);
+	const int16_t res = value + amount;
+	if (clamp) {
+		if (res < bottom) {
+			return bottom;
+		} else if (res > top) {
+			return top;
+		}
+	}
+	return res;
+}
+
 static void slidefx(struct slide_params *slide_params, struct osc_params *osc_params)
 {
 	if (slide_params->slide_amount) {
 		if ((slide_params->slide_count & 0x3F) >= (slide_params->slide_config & 0x3F)) {
 			switch (slide_params->slide_count & 0xC0) {
+#if ATM_HAS_FX_VOL_SLIDE
 				case 0:
 					osc_params->vol = slide_quantity(
 											slide_params->slide_amount,
@@ -76,6 +79,8 @@ static void slidefx(struct slide_params *slide_params, struct osc_params *osc_pa
 											MAX_VOLUME,
 											slide_params->slide_config & 0x80);
 					break;
+#endif
+#if ATM_HAS_FX_FREQ_SLIDE
 				case 0x40:
 					osc_params->phase_increment = slide_quantity(
 													slide_params->slide_amount,
@@ -84,6 +89,8 @@ static void slidefx(struct slide_params *slide_params, struct osc_params *osc_pa
 													OSC_PHASE_INC_MAX,
 													slide_params->slide_config & 0x80);
 					break;
+#endif
+#if ATM_HAS_FX_MOD_SLIDE
 				case 0x80:
 					osc_params->mod = slide_quantity(
 													slide_params->slide_amount,
@@ -92,6 +99,7 @@ static void slidefx(struct slide_params *slide_params, struct osc_params *osc_pa
 													OSC_MOD_MAX,
 													slide_params->slide_config & 0x80);
 					break;
+#endif
 			}
 			slide_params->slide_count &= 0xC0;
 		} else {
@@ -99,6 +107,7 @@ static void slidefx(struct slide_params *slide_params, struct osc_params *osc_pa
 		}
 	}
 }
+#endif
 
 uint16_t read_vle(const uint8_t **pp) {
 	uint16_t q = 0;
@@ -249,12 +258,19 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 			ch->note += ch->transConfig;
 		}
 		ch->osc_params->phase_increment = note_index_2_phase_inc(ch->note);
+#if ATM_HAS_FX_SLIDE
 		if (!ch->vf_slide.slide_config) {
 			ch->osc_params->vol = ch->reCount;
 		}
+#else
+		ch->osc_params->vol = ch->reCount;
+#endif
+
+#if ATM_HAS_FX_NOTE_RETRIG
 		if (ch->arpTiming & 0x20) {
 			ch->arpCount = 0; // ARP retriggering
 		}
+#endif
 	} else if (cmd < 160) {
 		// 64 … 159 : SETUP FX
 		switch (cmd - 64) {
@@ -262,6 +278,8 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 				ch->osc_params->vol = next_pattern_byte(ch);
 				ch->reCount = ch->osc_params->vol;
 				break;
+
+#if ATM_HAS_FX_SLIDE
 			case 1: // Slide volume ON
 				ch->vf_slide.slide_count = 0x00;
 				goto slide_on;
@@ -293,6 +311,9 @@ slide_on:
 			case 25: // Modulation slide off
 				ch->vf_slide.slide_amount = 0;
 				break;
+#endif
+
+#if ATM_HAS_FX_ARPEGGIO
 			case 7: // Set Arpeggio
 				ch->arpNotes = next_pattern_byte(ch);    // 0x40 + 0x03
 				ch->arpTiming = next_pattern_byte(ch);   // 0x40 (no third note) + 0x20 (toggle retrigger) + amount
@@ -300,6 +321,9 @@ slide_on:
 			case 8: // Arpeggio OFF
 				ch->arpNotes = 0;
 				break;
+#endif
+
+#if ATM_HAS_FX_NOISE_RETRIG
 			case 9: // Set Retriggering (noise)
 				ch->reConfig = next_pattern_byte(ch);    // RETRIG: point = 1 (*4), speed = 0 (0 = fastest, 1 = faster , 2 = fast)
 				ch->reCount = 0;
@@ -307,6 +331,8 @@ slide_on:
 			case 10: // Retriggering (noise) OFF
 				ch->reConfig = 0;
 				break;
+#endif
+
 			case 11: // ADD Transposition
 				ch->transConfig += (int8_t)next_pattern_byte(ch);
 				break;
@@ -316,6 +342,8 @@ slide_on:
 			case 13: // Transposition OFF
 				ch->transConfig = 0;
 				break;
+
+#if ATM_HAS_FX_LFO
 			case 14:
 			case 16: // SET Tremolo/Vibrato
 				ch->treviDepth = next_pattern_byte(ch);
@@ -326,6 +354,9 @@ slide_on:
 			case 17: // Tremolo/Vibrato OFF
 				ch->treviDepth = 0;
 				break;
+#endif
+
+#if ATM_HAS_FX_GLISSANDO
 			case 18: // Glissando
 				ch->glisConfig = next_pattern_byte(ch);
 				ch->glisCount = 0;
@@ -333,6 +364,9 @@ slide_on:
 			case 19: // Glissando OFF
 				ch->glisConfig = 0;
 				break;
+#endif
+
+#if ATM_HAS_FX_NOTECUT
 			case 20: // SET Note Cut
 				ch->arpNotes = 0xFF;                        // 0xFF use Note Cut
 				ch->arpTiming = next_pattern_byte(ch);   // tick amount
@@ -340,6 +374,8 @@ slide_on:
 			case 21: // Note Cut OFF
 				ch->arpNotes = 0;
 				break;
+#endif
+
 			case 22: // Set modulation
 				ch->osc_params->mod = next_pattern_byte(ch);
 				break;
@@ -415,13 +451,16 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 {
 	bool noise_retrigger = false;
 
+#if ATM_HAS_FX_NOISE_RETRIG
 	// Noise retriggering
 	if (ch_index == OSC_CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
 		ch->osc_params->phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
 		noise_retrigger = true;
 		ch->reCount = 0;
 	}
+#endif
 
+#if ATM_HAS_FX_GLISSANDO
 	//Apply Glissando
 	if (ch->glisConfig && (ch->glisCount++ >= (ch->glisConfig & 0x7F))) {
 		const uint8_t amount = (ch->glisConfig & 0x80) ? -1 : 1;
@@ -430,10 +469,14 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 		ch->osc_params->phase_increment = note_index_2_phase_inc(note);
 		ch->glisCount = 0;
 	}
+#endif
 
+#if ATM_HAS_FX_SLIDE
 	// Apply volume/frequency slides
 	slidefx(&ch->vf_slide, ch->osc_params);
+#endif
 
+#if ATM_HAS_FX_NOTE_RETRIG
 	// Apply Arpeggio or Note Cut
 	if (ch->arpNotes && ch->note) {
 		if ((ch->arpCount & 0x1F) < (ch->arpTiming & 0x1F)) {
@@ -462,7 +505,9 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 			ch->osc_params->phase_increment = note_index_2_phase_inc(arpNote + ch->transConfig);
 		}
 	}
+#endif
 
+#if ATM_HAS_FX_LFO
 	// Apply Tremolo or Vibrato
 	if (ch->treviDepth) {
 		int16_t vt = ((ch->treviConfig & 0x40) ? ch->osc_params->phase_increment : ch->osc_params->vol);
@@ -493,6 +538,7 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 			}
 		}
 	}
+#endif
 
 	while (ch->delay == 0) {
 		const uint8_t cmd = next_pattern_byte(ch);
