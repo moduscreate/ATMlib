@@ -113,7 +113,8 @@ uint16_t read_vle(const uint8_t **pp) {
 
 static inline const uint8_t *get_track_start_ptr(struct atmlib_state *score_state, const uint8_t track_index)
 {
-	return score_state->tracks_base + pgm_read_word(&score_state->track_list[track_index]);
+	const uint8_t offset = pgm_read_word(score_state->score_start+1+sizeof(uint16_t)*track_index);
+	return score_state->score_start + offset;
 }
 
 void atm_synth_setup(void)
@@ -147,8 +148,7 @@ void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx,
 	memset(&sfx_state->channel_state, 0, sizeof(sfx_state->channel_state));
 	atm_synth_grab_channel(ch_index, &sfx_state->osc_params);
 	sfx_state->channel_state.osc_params = &osc_params_array[ch_index];
-	sfx_state->track_info.track_list = sfx->tracks_offset;
-	sfx_state->track_info.tracks_base = ((uint8_t*)sfx);
+	sfx_state->track_info.score_start = ((uint8_t*)sfx);
 	sfx_state->track_info.channel_active_mute = 1 << (ch_index+OSC_CH_COUNT);
 	osc_params_array[ch_index].mod = 0x7F;
 	/* Set tick rate to ATMLIB_TICKRATE_MAX to trigger ASAP */
@@ -180,12 +180,10 @@ void atm_synth_play_score(const uint8_t *score)
 	atmlib_state.tick_rate = 25;
 	osc_set_tick_rate(0, atmlib_state.tick_rate);
 	/* Read track count */
+	atmlib_state.score_start = score;
 	uint8_t tracks_count = pgm_read_byte(score++);
-	/* Store track list pointer */
-	atmlib_state.track_list = (uint16_t*)score;
 	/* Store track pointer */
 	score += tracks_count*sizeof(uint16_t);
-	atmlib_state.tracks_base = score + OSC_CH_COUNT;
 	/* Fetch starting points for each track */
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
 		struct osc_params *o = channels[n].osc_params;

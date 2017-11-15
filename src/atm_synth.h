@@ -8,8 +8,7 @@
 
 
 struct atmlib_state {
-	const uint16_t *track_list;
-	const uint8_t *tracks_base;
+	const uint8_t *score_start;
 	uint8_t tick_rate;
 	uint8_t channel_active_mute; //0b11110000;
 	//                               ||||||||
