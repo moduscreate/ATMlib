@@ -233,7 +233,7 @@ void atm_synth_set_score_paused(const uint8_t paused)
 		if (paused) {
 			channels[n].osc_params->vol = 0;
 		} else {
-			channels[n].osc_params->vol = channels[n].reCount;
+			channels[n].osc_params->vol = channels[n].vol;
 		}
 	}
 	osc_set_tick_callback(0, paused ? NULL : atm_synth_score_tick_handler, NULL);
@@ -258,12 +258,13 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 			ch->note += ch->transConfig;
 		}
 		ch->osc_params->phase_increment = note_index_2_phase_inc(ch->note);
+
 #if ATM_HAS_FX_SLIDE
 		if (!ch->vf_slide.slide_config) {
-			ch->osc_params->vol = ch->reCount;
+			ch->osc_params->vol = ch->vol;
 		}
 #else
-		ch->osc_params->vol = ch->reCount;
+		ch->osc_params->vol = ch->vol;
 #endif
 
 #if ATM_HAS_FX_NOTE_RETRIG
@@ -276,7 +277,7 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 		switch (cmd - 64) {
 			case 0: // Set volume
 				ch->osc_params->vol = next_pattern_byte(ch);
-				ch->reCount = ch->osc_params->vol;
+				ch->vol = ch->osc_params->vol;
 				break;
 
 #if ATM_HAS_FX_SLIDE

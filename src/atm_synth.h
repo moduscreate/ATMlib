@@ -74,6 +74,7 @@ struct pattern_state {
 
 struct channel_state {
 	uint8_t note;
+	uint8_t vol;
 	uint16_t delay;
 
 	// Nesting
@@ -98,8 +99,8 @@ struct channel_state {
 #if ATM_HAS_FX_NOISE_RETRIG
 	// Retrig FX
 	uint8_t reConfig;       // [7:2] = , [1:0] = speed // used for the noise channel
+	uint8_t reCount;
 #endif
-	uint8_t reCount;        // also using this as a buffer for volume retrig on all channels
 
 	// Transposition FX
 	int8_t transConfig;
