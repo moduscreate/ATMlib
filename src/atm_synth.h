@@ -36,7 +36,7 @@
 #define ATM_HAS_FX_LFO (ATM_HAS_FX_TREMOLO || ATM_HAS_FX_VIBRATO)
 
 
-struct atmlib_state {
+struct atm_player_state {
 	const uint8_t *score_start;
 	uint8_t tick_rate;
 	uint8_t channel_active_mute; //0b11110000;
@@ -76,13 +76,15 @@ struct channel_state {
 	uint8_t note;
 	uint8_t vol;
 	uint16_t delay;
+	// Transposition FX
+	int8_t trans_config;
 
 	// Nesting
 	struct pattern_state pstack[ATM_PATTERN_STACK_DEPTH];
 	uint8_t pstack_index;
-	uint8_t repeat_point;
+	uint8_t loop_pattern_index;
 
-	struct osc_params *osc_params;
+	struct osc_params *dst_osc_params;
 
 #if ATM_HAS_FX_SLIDE
 	// Volume & Frequency slide FX
@@ -102,9 +104,6 @@ struct channel_state {
 	uint8_t reCount;
 #endif
 
-	// Transposition FX
-	int8_t transConfig;
-
 #if ATM_HAS_FX_LFO
 	// Tremolo or Vibrato FX
 	uint8_t treviDepth;
@@ -121,12 +120,12 @@ struct channel_state {
 
 struct mod_sfx_state {
 	uint8_t ch_index;
-	struct atmlib_state track_info;
+	struct atm_player_state track_info;
 	struct channel_state channel_state;
 	struct osc_params osc_params;
 };
 
-extern struct atmlib_state atmlib_state;
+extern struct atm_player_state atmlib_state;
 
 uint16_t read_vle(const uint8_t **pp);
 

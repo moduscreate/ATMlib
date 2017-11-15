@@ -7,7 +7,7 @@
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
-struct atmlib_state atmlib_state;
+struct atm_player_state atmlib_state;
 
 #define ATMLIB_TICKRATE_MAX (255)
 #define MAX_VOLUME (63)
@@ -35,7 +35,7 @@ static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
 
 static void osc_update_osc(const uint8_t osc_idx, const struct osc_params *src, const uint8_t flags)
 {
-	struct osc_params *dst = channels[osc_idx].osc_params;
+	struct osc_params *dst = channels[osc_idx].dst_osc_params;
 	if (src == dst) {
 		return;
 	}
@@ -120,7 +120,7 @@ uint16_t read_vle(const uint8_t **pp) {
 	return q;
 }
 
-static inline const uint8_t *get_track_start_ptr(struct atmlib_state *score_state, const uint8_t track_index)
+static inline const uint8_t *get_track_start_ptr(struct atm_player_state *score_state, const uint8_t track_index)
 {
 	const uint8_t offset = pgm_read_word(score_state->score_start+1+sizeof(uint16_t)*track_index);
 	return score_state->score_start + offset;
@@ -131,7 +131,7 @@ void atm_synth_setup(void)
 	osc_setup();
 	atmlib_state.channel_active_mute = 0;
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
-		channels[n].osc_params = &osc_params_array[n];
+		channels[n].dst_osc_params = &osc_params_array[n];
 	}
 }
 
@@ -140,13 +140,13 @@ void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save
 	atm_synth_set_muted(atm_synth_get_muted() | (1 << channel_index));
 	*save = osc_params_array[channel_index];
 	memset(&osc_params_array[channel_index], 0, sizeof(osc_params_array[0]));
-	channels[channel_index].osc_params = save;
+	channels[channel_index].dst_osc_params = save;
 }
 
 void atm_synth_release_channel(const uint8_t channel_index)
 {
-	osc_params_array[channel_index] = *channels[channel_index].osc_params;
-	channels[channel_index].osc_params = &osc_params_array[channel_index];
+	osc_params_array[channel_index] = *channels[channel_index].dst_osc_params;
+	channels[channel_index].dst_osc_params = &osc_params_array[channel_index];
 	atm_synth_set_muted(atm_synth_get_muted() & ~(1 << channel_index));
 }
 
@@ -156,7 +156,7 @@ void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx,
 	atm_synth_stop_sfx_track(ch_index);
 	memset(&sfx_state->channel_state, 0, sizeof(sfx_state->channel_state));
 	atm_synth_grab_channel(ch_index, &sfx_state->osc_params);
-	sfx_state->channel_state.osc_params = &osc_params_array[ch_index];
+	sfx_state->channel_state.dst_osc_params = &osc_params_array[ch_index];
 	sfx_state->track_info.score_start = ((uint8_t*)sfx);
 	sfx_state->track_info.channel_active_mute = 1 << (ch_index+OSC_CH_COUNT);
 	osc_params_array[ch_index].mod = 0x7F;
@@ -195,9 +195,9 @@ void atm_synth_play_score(const uint8_t *score)
 	score += tracks_count*sizeof(uint16_t);
 	/* Fetch starting points for each track */
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
-		struct osc_params *o = channels[n].osc_params;
+		struct osc_params *o = channels[n].dst_osc_params;
 		memset(&channels[n], 0, sizeof(channels[0]));
-		channels[n].osc_params = o;
+		channels[n].dst_osc_params = o;
 		pattern_cmd_ptr(&channels[n]) = get_track_start_ptr(&atmlib_state, pgm_read_byte(score++));
 		channels[n].delay = 0;
 		/* this is not entirely correct because the channel may be in use by SFX */
@@ -231,9 +231,9 @@ void atm_synth_set_score_paused(const uint8_t paused)
 	}
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
 		if (paused) {
-			channels[n].osc_params->vol = 0;
+			channels[n].dst_osc_params->vol = 0;
 		} else {
-			channels[n].osc_params->vol = channels[n].vol;
+			channels[n].dst_osc_params->vol = channels[n].vol;
 		}
 	}
 	osc_set_tick_callback(0, paused ? NULL : atm_synth_score_tick_handler, NULL);
@@ -249,22 +249,22 @@ uint8_t atm_synth_get_muted(void)
 	return atmlib_state.channel_active_mute & 0x0F;
 }
 
-static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atmlib_state *score_state, struct channel_state *ch)
+static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
 {
 	if (cmd < 64) {
 		// 0 … 63 : NOTE ON/OFF
 		ch->note = cmd;
 		if (ch->note) {
-			ch->note += ch->transConfig;
+			ch->note += ch->trans_config;
 		}
-		ch->osc_params->phase_increment = note_index_2_phase_inc(ch->note);
+		ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->note);
 
 #if ATM_HAS_FX_SLIDE
 		if (!ch->vf_slide.slide_config) {
-			ch->osc_params->vol = ch->vol;
+			ch->dst_osc_params->vol = ch->vol;
 		}
 #else
-		ch->osc_params->vol = ch->vol;
+		ch->dst_osc_params->vol = ch->vol;
 #endif
 
 #if ATM_HAS_FX_NOTE_RETRIG
@@ -276,8 +276,8 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 		// 64 … 159 : SETUP FX
 		switch (cmd - 64) {
 			case 0: // Set volume
-				ch->osc_params->vol = next_pattern_byte(ch);
-				ch->vol = ch->osc_params->vol;
+				ch->dst_osc_params->vol = next_pattern_byte(ch);
+				ch->vol = ch->dst_osc_params->vol;
 				break;
 
 #if ATM_HAS_FX_SLIDE
@@ -335,13 +335,13 @@ slide_on:
 #endif
 
 			case 11: // ADD Transposition
-				ch->transConfig += (int8_t)next_pattern_byte(ch);
+				ch->trans_config += (int8_t)next_pattern_byte(ch);
 				break;
 			case 12: // SET Transposition
-				ch->transConfig = next_pattern_byte(ch);
+				ch->trans_config = next_pattern_byte(ch);
 				break;
 			case 13: // Transposition OFF
-				ch->transConfig = 0;
+				ch->trans_config = 0;
 				break;
 
 #if ATM_HAS_FX_LFO
@@ -378,7 +378,7 @@ slide_on:
 #endif
 
 			case 22: // Set modulation
-				ch->osc_params->mod = next_pattern_byte(ch);
+				ch->dst_osc_params->mod = next_pattern_byte(ch);
 				break;
 			case 92: // ADD tempo
 				score_state->tick_rate += next_pattern_byte(ch);
@@ -387,7 +387,7 @@ slide_on:
 				score_state->tick_rate = next_pattern_byte(ch);
 				break;
 			case 94: // Goto advanced
-				ch->repeat_point = next_pattern_byte(ch);
+				ch->loop_pattern_index = next_pattern_byte(ch);
 				break;
 			case 95: // Stop channel
 				goto stop_channel;
@@ -444,18 +444,18 @@ slide_on:
 
 stop_channel:
 	score_state->channel_active_mute = score_state->channel_active_mute ^ (1 << (ch_index + OSC_CH_COUNT));
-	ch->osc_params->vol = 0;
+	ch->dst_osc_params->vol = 0;
 	ch->delay = 0xFFFF;
 }
 
-static inline void process_channel(const uint8_t ch_index, struct atmlib_state *score_state, struct channel_state *ch)
+static inline void process_channel(const uint8_t ch_index, struct atm_player_state *score_state, struct channel_state *ch)
 {
 	bool noise_retrigger = false;
 
 #if ATM_HAS_FX_NOISE_RETRIG
 	// Noise retriggering
 	if (ch_index == OSC_CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
-		ch->osc_params->phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
+		ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
 		noise_retrigger = true;
 		ch->reCount = 0;
 	}
@@ -467,14 +467,14 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 		const uint8_t amount = (ch->glisConfig & 0x80) ? -1 : 1;
 		const uint8_t note = slide_quantity(amount, ch->note, 1, LAST_NOTE, 0);
 		ch->note = note;
-		ch->osc_params->phase_increment = note_index_2_phase_inc(note);
+		ch->dst_osc_params->phase_increment = note_index_2_phase_inc(note);
 		ch->glisCount = 0;
 	}
 #endif
 
 #if ATM_HAS_FX_SLIDE
 	// Apply volume/frequency slides
-	slidefx(&ch->vf_slide, ch->osc_params);
+	slidefx(&ch->vf_slide, ch->dst_osc_params);
 #endif
 
 #if ATM_HAS_FX_NOTE_RETRIG
@@ -501,9 +501,9 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 			if ((ch->arpCount & 0xE0) == 0x40) {
 				arpNote += (ch->arpNotes & 0x0F);
 			}
-			// Is it correct to add ch->transConfig to arpNote? The existing note should
+			// Is it correct to add ch->trans_config to arpNote? The existing note should
 			// already be transposed.
-			ch->osc_params->phase_increment = note_index_2_phase_inc(arpNote + ch->transConfig);
+			ch->dst_osc_params->phase_increment = note_index_2_phase_inc(arpNote + ch->trans_config);
 		}
 	}
 #endif
@@ -511,7 +511,7 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 #if ATM_HAS_FX_LFO
 	// Apply Tremolo or Vibrato
 	if (ch->treviDepth) {
-		int16_t vt = ((ch->treviConfig & 0x40) ? ch->osc_params->phase_increment : ch->osc_params->vol);
+		int16_t vt = ((ch->treviConfig & 0x40) ? ch->dst_osc_params->phase_increment : ch->dst_osc_params->vol);
 		vt = (ch->treviCount & 0x80) ? (vt + ch->treviDepth) : (vt - ch->treviDepth);
 		if (vt < 0) {
 			vt = 0;
@@ -525,9 +525,9 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 			}
 		}
 		if (ch->treviConfig & 0x40) {
-			ch->osc_params->phase_increment = vt;
+			ch->dst_osc_params->phase_increment = vt;
 		} else {
-			ch->osc_params->vol = vt;
+			ch->dst_osc_params->vol = vt;
 		}
 		if ((ch->treviCount & 0x1F) < (ch->treviConfig & 0x1F)) {
 			ch->treviCount++;
@@ -552,7 +552,7 @@ static inline void process_channel(const uint8_t ch_index, struct atmlib_state *
 
 	if (!(score_state->channel_active_mute & (1 << ch_index))) {
 		const uint8_t flags = (noise_retrigger || ch_index != OSC_CH_THREE) ? 0 : 0x1;
-		osc_update_osc(ch_index, ch->osc_params, flags);
+		osc_update_osc(ch_index, ch->dst_osc_params, flags);
 	}
 }
 
@@ -584,10 +584,10 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 		for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
 			struct channel_state *const ch = &channels[k];
 			/* a quirk in the original implementation does not allow to loop to pattern 0 */
-			if (!ch->repeat_point) {
+			if (!ch->loop_pattern_index) {
 				continue;
 			}
-			pattern_cmd_ptr(ch) = get_track_start_ptr(&atmlib_state, ch->repeat_point);
+			pattern_cmd_ptr(ch) = get_track_start_ptr(&atmlib_state, ch->loop_pattern_index);
 			ch->delay = 0;
 			atmlib_state.channel_active_mute |= (1<<(k+OSC_CH_COUNT));
 		}
