@@ -33,21 +33,6 @@ static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
 #define pattern_cmd_ptr(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr)
 #define pattern_repetition_counter(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].repetitions_counter)
 
-static void osc_update_osc(const uint8_t osc_idx, const struct osc_params *src, const uint8_t flags)
-{
-	struct osc_params *dst = channels[osc_idx].dst_osc_params;
-	if (src == dst) {
-		return;
-	}
-
-	if (flags & 0x1) {
-		dst->vol = src->vol;
-		dst->mod = src->mod;
-	} else {
-		*dst = *src;
-	}
-}
-
 #if ATM_HAS_FX_SLIDE
 
 /* flags: bit 7 = 0 clamp, 1 wraparound */
@@ -451,13 +436,10 @@ stop_channel:
 
 static inline void process_channel(const uint8_t ch_index, struct atm_player_state *score_state, struct channel_state *ch)
 {
-	bool noise_retrigger = false;
-
 #if ATM_HAS_FX_NOISE_RETRIG
 	// Noise retriggering
 	if (ch_index == OSC_CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
 		ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->reConfig >> 2);
-		noise_retrigger = true;
 		ch->reCount = 0;
 	}
 #endif
@@ -549,11 +531,6 @@ static inline void process_channel(const uint8_t ch_index, struct atm_player_sta
 
 	if (ch->delay != 0xFFFF) {
 		ch->delay--;
-	}
-
-	if (!(score_state->channel_active_mute & (1 << ch_index))) {
-		const uint8_t flags = (noise_retrigger || ch_index != OSC_CH_THREE) ? 0 : 0x1;
-		osc_update_osc(ch_index, ch->dst_osc_params, flags);
 	}
 }
 
