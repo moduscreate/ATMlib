@@ -230,9 +230,10 @@ void atm_synth_set_score_paused(const uint8_t paused)
 	}
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
 		if (paused) {
+			/* Volume for each channel should be saved here and restored upon unmute */
+			/* but we want to save memory so after unpausing the fist note or effect */
+			/* will update the volume again */
 			channels[n].dst_osc_params->vol = 0;
-		} else {
-			channels[n].dst_osc_params->vol = channels[n].vol;
 		}
 	}
 	osc_set_tick_callback(0, paused ? NULL : atm_synth_score_tick_handler, NULL);
