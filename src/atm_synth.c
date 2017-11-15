@@ -33,7 +33,7 @@ static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
 #define pattern_cmd_ptr(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr)
 #define pattern_repetition_counter(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].repetitions_counter)
 
-#if ATM_HAS_FX_SLIDE
+#if ATM_HAS_FX_GLISSANDO || ATM_HAS_FX_SLIDE
 
 /* flags: bit 7 = 0 clamp, 1 wraparound */
 static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
@@ -49,6 +49,10 @@ static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int
 	}
 	return res;
 }
+
+#endif
+
+#if ATM_HAS_FX_SLIDE
 
 static void slidefx(struct slide_params *slide_params, struct osc_params *osc_params)
 {
