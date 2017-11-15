@@ -258,7 +258,7 @@ static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct
 			ch->note += ch->trans_config;
 		}
 		ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->note);
-		ch->dst_osc_params->vol = ch->vol;
+		ch->dst_osc_params->vol = cmd ? ch->vol : 0;
 		ch->dst_osc_params->mod = ch->mod;
 
 #if ATM_HAS_FX_NOTE_RETRIG
