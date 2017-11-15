@@ -135,6 +135,15 @@ void atm_synth_setup(void)
 	}
 }
 
+static void atm_synth_init_channel(struct channel_state *ch, struct osc_params *dst, struct atm_player_state *player, uint8_t pattern_index)
+{
+	memset(ch, 0, sizeof(*ch));
+	ch->mod = 0x7F;
+	ch->dst_osc_params = dst;
+	ch->pstack[0].next_cmd_ptr = get_track_start_ptr(player, pattern_index);
+	ch->pstack[0].pattern_index = pattern_index;
+}
+
 void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save)
 {
 	atm_synth_set_muted(atm_synth_get_muted() | (1 << channel_index));
@@ -154,16 +163,12 @@ void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx,
 {
 	sfx_state->ch_index = ch_index;
 	atm_synth_stop_sfx_track(ch_index);
-	memset(&sfx_state->channel_state, 0, sizeof(sfx_state->channel_state));
 	atm_synth_grab_channel(ch_index, &sfx_state->osc_params);
-	sfx_state->channel_state.dst_osc_params = &osc_params_array[ch_index];
 	sfx_state->track_info.score_start = ((uint8_t*)sfx);
 	sfx_state->track_info.channel_active_mute = 1 << (ch_index+OSC_CH_COUNT);
-	osc_params_array[ch_index].mod = 0x7F;
-	/* Set tick rate to ATMLIB_TICKRATE_MAX to trigger ASAP */
+	atm_synth_init_channel(&sfx_state->channel_state, &osc_params_array[ch_index], &sfx_state->track_info, 0);
 	sfx_state->track_info.tick_rate = 25;
 	osc_set_tick_rate(1, 25);
-	pattern_cmd_ptr(&sfx_state->channel_state) = get_track_start_ptr(&sfx_state->track_info, 0);
 	/* Start SFX */
 	osc_set_tick_callback(1, atm_synth_sfx_tick_handler, sfx_state);
 }
@@ -195,13 +200,7 @@ void atm_synth_play_score(const uint8_t *score)
 	score += tracks_count*sizeof(uint16_t);
 	/* Fetch starting points for each track */
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
-		struct osc_params *o = channels[n].dst_osc_params;
-		memset(&channels[n], 0, sizeof(channels[0]));
-		channels[n].dst_osc_params = o;
-		pattern_cmd_ptr(&channels[n]) = get_track_start_ptr(&atmlib_state, pgm_read_byte(score++));
-		channels[n].delay = 0;
-		/* this is not entirely correct because the channel may be in use by SFX */
-		osc_params_array[n].mod = 0x7F;
+		atm_synth_init_channel(&channels[n], channels[n].dst_osc_params, &atmlib_state, pgm_read_byte(score++));
 	}
 	/* Start playback */
 	osc_set_tick_callback(0, atm_synth_score_tick_handler, NULL);
