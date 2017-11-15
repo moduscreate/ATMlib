@@ -382,8 +382,8 @@ slide_on:
 		// 252 (253) : CALL (REPEATEDLY)
 		/* ignore call command if the stack is full */
 		if (ch->pstack_index < ATM_PATTERN_STACK_DEPTH-1) {
-			uint8_t new_counter = cmd == 252 ? 0 : next_pattern_byte(ch);
 			uint8_t new_track = next_pattern_byte(ch);
+			uint8_t new_counter = cmd == 252 ? 0 : next_pattern_byte(ch);
 
 			if (new_track != pattern_index(ch)) {
 				// Stack PUSH
