@@ -131,7 +131,6 @@ static void atm_synth_init_channel(struct channel_state *ch, struct osc_params *
 
 void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save)
 {
-	atm_synth_set_muted(atm_synth_get_muted() | (1 << channel_index));
 	*save = osc_params_array[channel_index];
 	memset(&osc_params_array[channel_index], 0, sizeof(osc_params_array[0]));
 	channels[channel_index].dst_osc_params = save;
@@ -141,7 +140,6 @@ void atm_synth_release_channel(const uint8_t channel_index)
 {
 	osc_params_array[channel_index] = *channels[channel_index].dst_osc_params;
 	channels[channel_index].dst_osc_params = &osc_params_array[channel_index];
-	atm_synth_set_muted(atm_synth_get_muted() & ~(1 << channel_index));
 }
 
 void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx, struct mod_sfx_state *sfx_state)
@@ -222,16 +220,6 @@ void atm_synth_set_score_paused(const uint8_t paused)
 		}
 	}
 	osc_set_tick_callback(0, paused ? NULL : atm_synth_score_tick_handler, NULL);
-}
-
-void atm_synth_set_muted(const uint8_t channel_mask)
-{
-	atmlib_state.channel_active_mute ^= (atmlib_state.channel_active_mute ^ channel_mask) & 0x0F;
-}
-
-uint8_t atm_synth_get_muted(void)
-{
-	return atmlib_state.channel_active_mute & 0x0F;
 }
 
 static inline void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)

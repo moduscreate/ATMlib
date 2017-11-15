@@ -139,9 +139,6 @@ uint8_t atm_synth_is_score_stopped(void);
 void atm_synth_set_score_paused(const uint8_t paused);
 uint8_t atm_synth_get_score_paused(void);
 
-void atm_synth_set_muted(const uint8_t channel_mask);
-uint8_t atm_synth_get_muted(void);
-
 void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save);
 void atm_synth_release_channel(const uint8_t channel_index);
 

@@ -23,13 +23,3 @@ void ATMsynth::stop() {
 void ATMsynth::playPause() {
 	atm_synth_set_score_paused(!atm_synth_get_score_paused());
 }
-
-// Toggle mute on/off on a channel, so it can be used for sound effects
-// So you have to call it before and after the sound effect
-void ATMsynth::muteChannel(uint8_t ch) {
-	atm_synth_set_muted((1 << ch) | atm_synth_get_muted());
-}
-
-void ATMsynth::unMuteChannel(uint8_t ch) {
-	atm_synth_set_muted(~(1 << ch) & atm_synth_get_muted());
-}
