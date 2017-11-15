@@ -16,7 +16,7 @@ struct callback_info {
 
 uint8_t __attribute__((used)) osc_isr_reenter = 0;
 uint8_t osc_int_count __attribute__((used));
-struct osc_params osc_params_array[OSC_CH_COUNT];
+struct osc_params osc_params_array[OSC_CH_COUNT] __attribute__((used));
 uint16_t osc_pha_acc_array[OSC_CH_COUNT] __attribute__((used));
 struct callback_info osc_cb[OSC_TICK_CALLBACK_COUNT];
 
