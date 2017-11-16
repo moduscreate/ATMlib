@@ -11,38 +11,6 @@ ATMsynth ATM;
 
 struct mod_sfx_state sfx_state;
 
-const PROGMEM struct sfx1_data {
-  uint8_t num_tracks;
-  uint16_t tracks_offset[2];
-  uint8_t start_patterns[4];
-  uint8_t pattern1[8];
-  uint8_t pattern2[9];
-} sfx1 = {
-  .num_tracks = 0x02,
-  .tracks_offset = {
-      offsetof(struct sfx1_data, pattern1),
-      offsetof(struct sfx1_data, pattern2),
-  },
-  .start_patterns = {0,0,0,0},
-  .pattern1 = {
-    0x9D, 10,  
-    0x40, 10,
-    0xFD, 10, 1,
-    0x9F,       
-  },
-  .pattern2 = {
-    0x00 + 42,    // NOTE ON: note = 42
-    0x9F + 20,   // DELAY: ticks = 20
-    0x00 + 43,    // NOTE ON: note = 43
-    0x9F + 20,   // DELAY: ticks = 20
-    0x00 + 44,    // NOTE ON: note = 44
-    0x9F + 20,   // DELAY: ticks = 20
-    0x00 + 45,    // NOTE ON: note = 45
-    0x9F + 20,   // DELAY: ticks = 20
-    0xFE,         // RETURN
-  }
-};
-
 void setup() {
   arduboy.begin();
   // set the framerate of the game at 60 fps
@@ -63,7 +31,6 @@ void setup() {
 }
 
 void loop() {
-  char buf[64];
 
   if (!(arduboy.nextFrame()))
     return;
@@ -88,8 +55,42 @@ void loop() {
     atm_synth_set_score_paused(!atm_synth_get_score_paused());
   }
   arduboy.display();
- #if 0
-  sprintf(buf, "channel_active_mute: 0x%02hhX\n", atmlib_state.channel_active_mute);
-  Serial.write(buf);
- #endif
 }
+
+#if 0
+extern "C" {
+void log_cmd(uint8_t chnum, uint8_t cmd, uint8_t sz, uint8_t *data);
+}
+
+#if 1
+void log_cmd(uint8_t chnum, uint8_t cmd, uint8_t sz, uint8_t *data)
+{
+}
+#else
+void log_cmd(uint8_t chnum, uint8_t cmd, uint8_t sz, uint8_t *data)
+{
+  char buf[64];
+
+#define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
+#define BYTE_TO_BINARY(byte)  \
+  (byte & 0x80 ? '1' : '0'), \
+  (byte & 0x40 ? '1' : '0'), \
+  (byte & 0x20 ? '1' : '0'), \
+  (byte & 0x10 ? '1' : '0'), \
+  (byte & 0x08 ? '1' : '0'), \
+  (byte & 0x04 ? '1' : '0'), \
+  (byte & 0x02 ? '1' : '0'), \
+  (byte & 0x01 ? '1' : '0')
+
+  sprintf(buf, "\nch: 0x%02hhX sz: 0x%02hhX %03hhu cmd: 0x%02hhX 0b" BYTE_TO_BINARY_PATTERN "\n", chnum, sz, cmd, cmd, BYTE_TO_BINARY(cmd));
+  Serial.write(buf);
+  while (sz--) {
+    uint8_t v = *data;
+    sprintf(buf, "\t0x%02hhX %03hhu 0b" BYTE_TO_BINARY_PATTERN "\n", v, v, BYTE_TO_BINARY(v));
+    Serial.write(buf);
+    data++;
+  }
+
+}
+#endif
+#endif
