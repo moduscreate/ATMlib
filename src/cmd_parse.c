@@ -23,28 +23,6 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd, str
 /* Immediate commands */
 	(void)(ch_index);
 	switch (cmd) {
-		case ATM_CMD_I_STOP:
-			goto stop_channel;
-		case ATM_CMD_I_RETURN:
-		{
-			if (pattern_repetition_counter(ch) > 0 || ch->pstack_index == 0) {
-				/* Repeat track */
-				if (pattern_repetition_counter(ch)) {
-					pattern_repetition_counter(ch)--;
-				}
-				pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
-			} else {
-				/* Check stack depth */
-				if (ch->pstack_index == 0) {
-					goto stop_channel;
-				} else {
-					/* pop stack */
-					ch->pstack_index--;
-				}
-			}
-			break;
-		}
-
 #if ATM_HAS_FX_GLISSANDO
 		case ATM_CMD_I_GLISSANDO_OFF:
 			ch->glisConfig = 0;
@@ -69,6 +47,23 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd, str
 			break;
 #endif
 
+		case ATM_CMD_I_STOP:
+			goto stop_channel;
+		case ATM_CMD_I_RETURN:
+			if (pattern_repetition_counter(ch) > 0) {
+				/* Repeat track */
+				pattern_repetition_counter(ch)--;
+				pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
+			} else {
+				/* Check stack depth */
+				if (ch->pstack_index == 0) {
+					goto stop_channel;
+				} else {
+					/* pop stack */
+					ch->pstack_index--;
+				}
+			}
+			break;
 		case ATM_CMD_I_TRANSPOSITION_OFF:
 			ch->trans_config = 0;
 			break;
@@ -83,7 +78,8 @@ stop_channel:
 
 static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
 {
-/* Parametrised commands */
+	(void)(ch_index);
+	/* Parametrised commands */
 
 	const uint8_t csz = ((cmd >> 4) & 0x7)+1;
 {
@@ -100,13 +96,14 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 				uint8_t new_track = data[0];
 				uint8_t new_counter = csz > 1 ? data[1] : 0;
 				if (new_track != pattern_index(ch)) {
-					/* push new patten on stack */
+					/* push new pattern on stack */
 					ch->pstack_index++;
 					pattern_index(ch) = new_track;
 				}
 				pattern_repetition_counter(ch) = new_counter;
-				pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
 			}
+			/* if the stack is full and we cannot call, the start of the current pattern will be fetched */
+			pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
 			break;
 
 #if ATM_HAS_FX_GLISSANDO
