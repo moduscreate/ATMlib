@@ -28,7 +28,6 @@ struct channel_state channels[OSC_CH_COUNT];
 static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv);
 static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
 
-#define next_pattern_byte(ch_ptr) (pgm_read_byte((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr++))
 #define pattern_index(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].pattern_index)
 #define pattern_cmd_ptr(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr)
 #define pattern_repetition_counter(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].repetitions_counter)
@@ -320,7 +319,7 @@ static inline void process_channel(const uint8_t ch_index, struct atm_player_sta
 #endif
 
 	while (ch->delay == 0) {
-		const uint8_t cmd = next_pattern_byte(ch);
+		const uint8_t cmd = pgm_read_byte(ch->pstack[ch->pstack_index].next_cmd_ptr++);
 		process_cmd(ch_index, cmd, score_state, ch);
 	}
 
