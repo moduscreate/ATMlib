@@ -68,7 +68,7 @@ struct slide_params {
 
 struct pattern_state {
 	const uint8_t *next_cmd_ptr;
-	uint8_t pattern_index; /* TODO: look into removing this */
+	uint8_t pattern_index;
 	uint8_t repetitions_counter;
 };
 

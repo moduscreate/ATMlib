@@ -116,7 +116,9 @@ static inline const uint8_t *get_track_start_ptr(struct atm_player_state *score_
 void atm_synth_setup(void)
 {
 	osc_setup();
+	/* no channel is active */
 	atmlib_state.channel_active_mute = 0;
+	/* take over all oscillators */
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
 		channels[n].dst_osc_params = &osc_params_array[n];
 	}
