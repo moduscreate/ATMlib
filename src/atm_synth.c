@@ -111,7 +111,7 @@ uint16_t read_vle(const uint8_t **pp) {
 
 static inline const uint8_t *get_track_start_ptr(struct atm_player_state *score_state, const uint8_t track_index)
 {
-	const uint8_t offset = pgm_read_word(score_state->score_start+1+sizeof(uint16_t)*track_index);
+	const uint16_t offset = pgm_read_word(score_state->score_start+1+sizeof(uint16_t)*track_index);
 	return score_state->score_start + offset;
 }
 
