@@ -20,18 +20,7 @@ static void cmd_note(const uint8_t cmd, struct channel_state *ch)
 
 static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
 {
-/* Immediate commands
-
-00 - Stop (end pattern marker, stop playback on this channel)
-01 - Return
-02 - Glissando/portamento OFF
-03 - Arpeggio OFF
-04 - Note Cut OFF
-05 - Noise re-trigger OFF
-06 - Transpose OFF
-[07, 15] - [reserved]
-
-*/
+/* Immediate commands */
 	(void)(ch_index);
 	switch (cmd) {
 		case ATM_CMD_I_STOP:
@@ -94,26 +83,7 @@ stop_channel:
 
 static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
 {
-/* Parametrised commands
-
-00 - [reserved]
-01 - Call
-02 - Glissando/portamento
-03 - Arpeggio
-04 - Note Cut
-05 - Noise re-trigger
-06 - Set transposition
-07 - [reserved]
-08 - Add transposition
-09 - Set tempo
-10 - Add tempo
-11 - Set Volume
-12 - Set square duty cycle
-13 - Setup loop
-14 - Slide FX
-15 - LFO FX
-
-*/
+/* Parametrised commands */
 
 	const uint8_t csz = ((cmd >> 4) & 0x7)+1;
 	const uint8_t **src = &ch->pstack[ch->pstack_index].next_cmd_ptr;
