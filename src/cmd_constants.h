@@ -140,6 +140,8 @@ enum atm_parametrised_cmd_constants {
 	ATM_CMD_P_LFO_OFF           = ATM_CMD_ID_LFO               + ATM_CMD_PNUM_1,
 };
 
+#define ATM_CMD_M_NOTE(note) (note)
+
 #define ATM_CMD_M_DELAY_TICKS(delay) (ATM_CMD_I_DELAY_1_TICK+(delay-1))
 
 #define ATM_CMD_M_CALL(pattern_index) ATM_CMD_P_CALL, (pattern_index)
