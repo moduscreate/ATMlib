@@ -107,10 +107,33 @@ uint16_t read_vle(const uint8_t **pp) {
 	return q;
 }
 
-static inline const uint8_t *get_track_start_ptr(struct atm_player_state *score_state, const uint8_t track_index)
+union fmt_hdr {
+	uint16_t u16;
+	struct {
+		uint8_t fmt;
+		uint8_t data;
+	} f;
+};
+
+static const uint8_t *get_entry_pattern_array_ptr(const uint8_t *score)
 {
-	const uint16_t offset = pgm_read_word(score_state->score_start+1+sizeof(uint16_t)*track_index);
-	return score_state->score_start + offset;
+	union fmt_hdr hdr;
+
+	hdr.u16 = pgm_read_word(score);
+	const uint8_t pattern_count = hdr.f.fmt & 0x02 ? hdr.f.data : 0;
+	return hdr.f.fmt & 0x01 ? score + sizeof(uint16_t)*pattern_count + 3 : NULL;
+}
+
+static const uint8_t *get_track_start_ptr(struct atm_player_state *score_state, const uint8_t track_index)
+{
+	const uint8_t *s = score_state->score_start;
+	union fmt_hdr hdr;
+
+	hdr.u16 = pgm_read_word(s);
+	if (hdr.f.fmt & 0x02) {
+		return s + pgm_read_word(s+2+sizeof(uint16_t)*track_index);
+	}
+	return hdr.f.fmt & 0x01 ? s+1+pgm_read_byte(hdr.f.data) : s+1;
 }
 
 void atm_synth_setup(void)
@@ -133,6 +156,13 @@ static void atm_synth_init_channel(struct channel_state *ch, struct osc_params *
 	ch->pstack[0].pattern_index = pattern_index;
 }
 
+static void atm_player_init_state(const uint8_t *score, struct atm_player_state *dst)
+{
+	dst->score_start = score;
+	dst->channel_active_mute |= 0b11110000;
+	dst->tick_rate = 25;
+}
+
 void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save)
 {
 	*save = osc_params_array[channel_index];
@@ -151,11 +181,11 @@ void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx,
 	sfx_state->ch_index = ch_index;
 	atm_synth_stop_sfx_track(ch_index);
 	atm_synth_grab_channel(ch_index, &sfx_state->osc_params);
-	sfx_state->track_info.score_start = ((uint8_t*)sfx);
+	atm_player_init_state((const uint8_t*)sfx, &sfx_state->track_info);
+	/* override active flags so only one channel for is active for the SFX player */
 	sfx_state->track_info.channel_active_mute = 1 << (ch_index+OSC_CH_COUNT);
 	atm_synth_init_channel(&sfx_state->channel_state, &osc_params_array[ch_index], &sfx_state->track_info, 0);
-	sfx_state->track_info.tick_rate = 25;
-	osc_set_tick_rate(1, 25);
+	osc_set_tick_rate(1, sfx_state->track_info.tick_rate);
 	/* Start SFX */
 	osc_set_tick_callback(1, atm_synth_sfx_tick_handler, sfx_state);
 }
@@ -176,18 +206,14 @@ void atm_synth_play_score(const uint8_t *score)
 	/* stop current score if any */
 	atm_synth_stop_score();
 	/* Set default score data */
-	//osc_params_array[OSC_CH_THREE].phase_increment = 0x0001; // xFX
-	atmlib_state.channel_active_mute |= 0b11110000;
-	atmlib_state.tick_rate = 25;
+	atm_player_init_state(score, &atmlib_state);
 	osc_set_tick_rate(0, atmlib_state.tick_rate);
 	/* Read track count */
-	atmlib_state.score_start = score;
-	uint8_t tracks_count = pgm_read_byte(score++);
-	/* Store track pointer */
-	score += tracks_count*sizeof(uint16_t);
+	const uint8_t *ep = get_entry_pattern_array_ptr(score);
 	/* Fetch starting points for each track */
 	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
-		atm_synth_init_channel(&channels[n], channels[n].dst_osc_params, &atmlib_state, pgm_read_byte(score++));
+		atm_synth_init_channel(&channels[n],
+			channels[n].dst_osc_params, &atmlib_state, pgm_read_byte(&ep[n]));
 	}
 	/* Start playback */
 	osc_set_tick_callback(0, atm_synth_score_tick_handler, NULL);

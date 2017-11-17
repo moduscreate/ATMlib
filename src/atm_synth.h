@@ -35,6 +35,9 @@
 #define ATM_HAS_FX_SLIDE (ATM_HAS_FX_VOL_SLIDE || ATM_HAS_FX_FREQ_SLIDE || ATM_HAS_FX_MOD_SLIDE)
 #define ATM_HAS_FX_LFO (ATM_HAS_FX_TREMOLO || ATM_HAS_FX_VIBRATO)
 
+#define ATM_SCORE_FMT_MINIMAL_MONO (0x0)
+#define ATM_SCORE_FMT_FULL_MONO (0x2)
+#define ATM_SCORE_FMT_FULL (0x3)
 
 struct atm_player_state {
 	const uint8_t *score_start;

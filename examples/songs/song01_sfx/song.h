@@ -7,8 +7,10 @@
 #define NUM_PATTERNS(struct_) (ARRAY_SIZE( ((struct_ *)0)->patterns_offset))
 
 const PROGMEM struct score_data {
+  uint8_t fmt;
   uint8_t num_patterns;
   uint16_t patterns_offset[8];
+  uint8_t num_channels;
   uint8_t start_patterns[4];
   uint8_t pattern0[5];
   uint8_t pattern1[6];
@@ -19,6 +21,7 @@ const PROGMEM struct score_data {
   uint8_t pattern6[13];
   uint8_t pattern7[22];
 } score = {
+  .fmt = ATM_SCORE_FMT_FULL,
   .num_patterns = NUM_PATTERNS(struct score_data),
   .patterns_offset = {
       offsetof(struct score_data, pattern0),
@@ -30,6 +33,7 @@ const PROGMEM struct score_data {
       offsetof(struct score_data, pattern6),
       offsetof(struct score_data, pattern7),
   },
+  .num_channels = 4,
   .start_patterns = {
     0x02,                         // Channel 0 entry track (PULSE)
     0x01,                         // Channel 1 entry track (SQUARE)
@@ -120,35 +124,20 @@ const PROGMEM struct score_data {
 };
 
 const PROGMEM struct sfx1_data {
-  uint8_t num_patterns;
-  uint16_t patterns_offset[2];
-  uint8_t start_patterns[4];
-  uint8_t pattern0[8];
-  uint8_t pattern1[9];
+  uint8_t fmt;
+  uint8_t pattern0[9];
 } sfx1 = {
-  .num_patterns = NUM_PATTERNS(struct sfx1_data),
-  .patterns_offset = {
-      offsetof(struct sfx1_data, pattern0),
-      offsetof(struct sfx1_data, pattern1),
-  },
-  .start_patterns = {0,0,0,0},
+  .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
-    ATM_CMD_M_SET_TEMPO(10),
-    ATM_CMD_M_SET_VOLUME(10),
-    ATM_CMD_M_CALL_REPEAT(1, 10),
+    ATM_CMD_M_SET_TEMPO(22),
+    ATM_CMD_M_SET_VOLUME(63),
+    ATM_CMD_I_NOTE_F5,
+    ATM_CMD_M_DELAY_TICKS(11),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_M_DELAY_TICKS(11),
     ATM_CMD_I_STOP,
   },
-  .pattern1 = {
-    ATM_CMD_I_NOTE_F5,
-    ATM_CMD_M_DELAY_TICKS(20),
-    ATM_CMD_I_NOTE_F5_,
-    ATM_CMD_M_DELAY_TICKS(20),
-    ATM_CMD_I_NOTE_G5,
-    ATM_CMD_M_DELAY_TICKS(20),
-    ATM_CMD_I_NOTE_G5_,
-    ATM_CMD_M_DELAY_TICKS(20),
-    ATM_CMD_I_RETURN,
-  }
 };
+
 #endif
 
