@@ -1,5 +1,4 @@
 
-#include <alloca.h>
 #include <string.h>
 #include <avr/pgmspace.h>
 

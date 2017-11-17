@@ -86,11 +86,11 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 /* Parametrised commands */
 
 	const uint8_t csz = ((cmd >> 4) & 0x7)+1;
-	const uint8_t **src = &ch->pstack[ch->pstack_index].next_cmd_ptr;
-	uint8_t *data = alloca(csz);
+{
+	uint8_t data[csz];
 
-	memcpy_P(data, *src, csz);
-	*src += csz;
+	memcpy_P(data, pattern_cmd_ptr(ch), csz);
+	pattern_cmd_ptr(ch) += csz;
 
 	log_cmd(ch_index, cmd, csz, data);
 	switch (cmd & 0x0F) {
@@ -197,6 +197,7 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 			break;
 #endif
 	}
+}
 }
 
 static void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
