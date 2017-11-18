@@ -1,115 +1,387 @@
-#ATMlib
+# ATMlib2
 
 ATMlib stands for **Arduboy Tracker Music** and is based on [_**Squawk**_](https://github.com/stg/Squawk "Squawk Github Page") a minimalistic 8-bit software synthesizer & playroutine library for Arduino, created by Davey Taylor aka STG.
 
-While _Squawk_ provides a very nice synth, it wasn't optimized for a small footprint. Songs are not very efficient in size, so Joeri Gantois aka JO3RI asked Davey to help him work on a new songformat and so ATMlib was born.
+While _Squawk_ provides a very nice synth, it wasn't optimized for a small footprint. Songs are not very efficient in size, so Joeri Gantois aka JO3RI asked Davey to help him work on a new score format and so ATMlib was born.
 
-Contributers:
+ATMlib2 is built on the work of JO3RI and Davey and adds a lot of new exciting features! ATMlib2 is not compatible with ATMlib music scores.
+
+Contributors (Alphabetical order):
 
 * Davey Taylor - ATMsynth - Effects
+* Delio Brignoli
+* Jay Garcia (Modus Create)
 * Joeri Gantois - Effects
 
-### FILE/ARRAY FORMAT DESCRIPTION
+Thanks to [Modus Create](https://moduscreate.com) for sponsoring and participating in the development.
 
-|**Section**					| **Field**					| **Type**			| **Description**
-|---							| ---						| ----------------	| ---
-|**Track table**				|							|					| **Number of tracks and their addresses**
-|								| Track count				| UBYTE (8-bits)	| Number of tracks in the file/array
-|								| Address track 1			| UWORD (16-bits)	| Location in the file/array for track 1
-|								| …							| …					| …
-|								| Address track *__N__*		| UWORD (16-bits)	| Location in the file/array for track *__N__ (0 … 255)*
-|								|							|					|
-|**Channel entry tracks**		|							|					| **For each channel, track to start with**
-|								| Channel 0 track			| UBYTE (8-bits)	| Starting track index for channel 0
-|								| … 						| …					| …
-|								| Channel 3 track			| UBYTE (8-bits)	| Starting track index for channel 3
-|								|							|					|
-|**Track 0**					|							|					| **Commands and parameters for track 0**
-|								| Command 0					| UBYTE (8-bits)	| See command list
-|								| *and its* Parameters		| none/variable		| *See __parameter list__ for each command*
-|								| …							| …					| …
-|								| Command N					| UBYTE (8-bits)	|
-|								| *and its* Parameters		| none/variable		|
-|**…**							| **…**						| **…**				| **…**
-|**Track _N_**					|							|					| **Commands and parameters for track _N_** *(0-255)*
+### Features
+
+* Score format supports minimal scores (1 byte overhead)
+* Extensible command encoding designed for simpler and smaller parser
+* 4 channels: 3 square wave with independent programmable duty cycle + 1 noise
+* LFO and slide effects can be applied to square wave duty cycle
+* Asynchronous playback of 1 sound effect as a mono music score on an arbitrary channel with independent tempo. Music is muted on the channel used by sound effects and resumed when the sound effect is stopped or finishes playback.
 
 
-### COMMAND LIST
-
-|**Command (_X_)**					| **Parameter**			| **Type**				| **Description**
-|---               	   				| ---					| ------------------	| ---
-|**0<br/>0x00**						|						|						| Stop playing
-|									|						|						|
-|**1…63<br/>0x00+__X__**			| note *(__X__)*		| UBYTE (8-bits)		| Start playing note *[__X__]* where 1 is a C4.<br/>See [Frequency to Tone](./extras/frequencyToTone.md "Frequency to Tone table")<br/>**_Note:_** everytime a note is played, volume is re-triggered
-|									|						|						|
-|**64…159<br/>0x40…0x9F**			|						|						| Configure effects (fx)
-|									| *See __fx list__*		| none/variable			| Effect is *[__X__ - 64]*
-|									|						|						|
-|**160…223<br/>0x9F+__t__**			| Ticks (*__t__*)		| UBYTE (8-bits)		| Delay for *[__X__ - 159]* or *[__t__]* ticks<br/>**_Note:_** delay of 0 does not exist and maximum is 64 ticks
-|									|						|						|
-|**224, __Y__<br/>0xE0, __Y__**		| Ticks (*__Y__*)		| VLE (8/16-bits)		| Long delay for *[__Y__ + 65]* ticks<br/> **_Note:_** LONG delay starts at 1 higher than SHORT delay
-|  					   				|						|						|
-|**~~225…251~~**		  	   		|						|						| ~~RESERVED~~
-|  					   				|						|						|
-|**252, N<br/>0xFC, N**				| Track *__N__*			| UBYTE (8-bits)		| Call/run/goto specified track<br/>Track index where *__N__* is the number of the track to go to
-|  					   				|						|						|
-|**253, Y, N<br/>0xFD, Y, N**		|						|						| Repeated call/run/goto specified track
-|                  	   				| Loop count (*__Y__*)	| UBYTE (8-bits)		| Repeat *[__Y__ + 1]* times (total)
-|                  	   				| Track  *__N__*		| UBYTE (8-bits)		| Track index where *__N__* is the number of the track to go to
-|  					   				|						|						|
-|**254<br/>0xFE**					|						|						| Return/end of track marker
-|									|						|						|
-|**255, L, D<br/>0xFF, L, D**		|						|						| Binary data
-|									| Length *__L__*		| VLE (8/16-bits)		| Length in bytes of data to follow
-|									| Data *__D__*			| variable				| Binary data chunk (notify host application)
+### Music playback example
 
 
-### FX LIST
+##### C
+``` C
+...
+#include "atm_synth.h"
 
-|**Effect**					| **Parameter**											| **Type**							| **Description**
-|---							| ------------------------								| ---------------------------		| ---
-|**64+0<br/>64<br/>0x40**	| set Volume (*__X__*)									| UBYTE (8-bit) 					| Set volume to *[__X__]*.<br/>**_Note:_** If the combined volume of all channels exceed 255 there may be rollover distortion. This<br/>should not be disallowed, as it may be useful as an effects hack for the musician. There should however be a non-interfering warning when a musician enters a value above 63 for ch 1-3 or 32 for ch 4 (noise). Volume for ch 4 is doubled so 32 is actually 64.
-|**64+1<br/>65<br/>0x41**	| slide Volume ON (*__X__*)								| BYTE (8-bit) 					| Slide the volume with an amount (positive or negative) of *[__X__]* for every tick.<br/>**_Note:_** This results in a fade-in or fade-out effect. There should be a non-interfering warning when sliding would result in exceeding 63 for ch 1-3 and 32 for ch 4.
-|**64+2<br/>66<br/>0x42**	| slide Volume ON advanced (*__X__*) (*__Y__*)		| BYTE (8-bit)<br/>UBYTE (8-bit)	| Slide the volume with an amount (positive or negative) of *[__X__]* for every [*__Y__*] ticks.<br/>*[__Y__]* includes 2 parameters: oRtttttt. R = reserved, o = allow under/overflow and t = ticks. When the _o_ bit is set the volume is allowed to exceed 63 and eventually roll over to 0 if the slide amount is positive, or to underflow and rollover to 255 if the slide amount is negative.
-|**64+3<br/>67<br/>0x43**	| Slide Volume OFF										|  									| Stops the volume slide
-|**64+4<br/>68<br/>0x44**	| Slide Frequency ON (*__X__*)							| BYTE (8-bit)						| Slide the frequency with an amount (positive or<br/>negative) of *[__X__]* for every tick. <br/>**_Note:_** The amount of slide is limited between -127 to 127
-|**64+5<br/>69<br/>0x45**	| Slide Frequency ON advanced (*__X__*) (*__Y__*)	| BYTE (8-bit)<br/>UBYTE (8-bit)	| Slide the frequency with an amount (positive or<br/>negative) of *[__X__]* for every [*__Y__*] ticks.<br/>*[__Y__]* includes 2 parameters: oRtttttt. R = reserved, o = allow under/overflow and t = ticks. When the _o_ bit is set the frequency is allowed to exceed note 63 and eventually roll over to 0 if the slide amount is positive, or to underflow and rollover to frequencies exceeding note 63 if the slide amount is negative.
-|**64+6<br/>70<br/>0x46**	| Slide Frequency OFF									|  									| Stops the frequency slide
-|**64+7<br/>71<br/>0x47**	| Set Arpeggio (*__X__*)(*__Y__*)						| UBYTE (8-bit)<br/>UBYTE (8-bit)	| Next to the current playing note, play a second and third note *[__X__]* for every *[__Y__]* ticks.<br/>*[__X__]* includes 2 parameters: AAAABBBB, where AAAA = base + amount to second note and BBBB = second note + amount to third note.<br/>*[__Y__]* includes 4 parameters: FEDttttt, where F = reserved, E = toggle no third note, D = toggle retrigger, ttttt = tick amount.<br/>**_Note:_** Arpeggio is used for playing 3 notes out of a chord indidually
-|**64+8<br/>72<br/>0x48**	| Arpeggio OFF											|									| Stops the arpeggio
-|**64+9<br/>73<br/>0x49**	| SET Retriggering noise ON (*__X__*)					| UBYTE (8-bit)						| Noise channel consists of white noise. By setting retriggering *[__X__]* it switches the entrypoint at a given speed. *[__X__]*  includes 2 parameters: AAAAAABB , where AAAAAA = entry point and BB = speed (0 = fastest, 1 = faster , 2 = fast)
-|**64+10<br/>74<br/>0x4A**	| Retriggering noise OFF								|									| Stops the retriggering for the noise on channel 3
-|**64+11<br/>75<br/>0x4B**	| Add Transposition (*__X__*)							| BYTE (8-bit)						| Shifts the played notes by adding *[__X__]* semitones to the existing transposition for all playing notes.<br/>**_Note:_** The amount of shift is limited between -127 to 127. However there should be a non-interfering warning when transposing would result in exceeding 63 or get lower than 0
-|**64+12<br/>76<br/>0x4C**	| Set Transposition (*__X__*)							| BYTE (8-bit)						| Shifts the played notes by setting the transposition to [__X__]* semitones for all playing notes.<br/>**_Note:_** The amount of shift is limited between -127 to 127. However there should be a non-interfering warning when transposing would result in exceeding 63 or get lower than 0
-|**64+13<br/>77<br/>0x4D**	| Transposition OFF										|									| Stops the transposition
-|**64+14<br/>78<br/>0x4E**	| Set Tremolo (*__X__*)(*__Y__*)						| UBYTE (8-bit)<br/>UBYTE (8-bit)	| *[__X__]* sets Depth.<br/>*[__Y__]* includes 4 parameters RxxBBBBB. R = Retrig, x = reserved , B = rate<br/>**_Note:_** Tremolo and Vibrato can **NOT** be combined in the same stack
-|**64+15<br/>79<br/>0x4F**	| Tremolo OFF											|									| Stops the tremolo
-|**64+16<br/>80<br/>0x50**	| Set Vibrato (*__X__*)(*__Y__*)						| UBYTE (8-bit)<br/>UBYTE (8-bit)	| *[__X__]* sets Depth.<br/>*[__Y__]* includes 4 parameters RxxBBBBB. R = Retrig, x = reserved , B = rate<br/>**_Note:_** Tremolo and Vibrato can **NOT** be combined in the same stack
-|**64+17<br/>81<br/>0x51**	| Vibrato OFF											|									| Stops the vibrato
-|**64+18<br/>82<br/>0x52**	| SET Glissando (*__X__*)								| UBYTE (8-bit)						| *[__X__]* includes 2 parameters: Vttttttt. V = value ( 0 = go 1 note up, 1 = go 1 note down) and t = amount of ticks, between each step
-|**64+19<br/>83<br/>0x53**	| Glissando OFF											|									| Stops the Glissando
-|**64+20<br/>84<br/>0x54**	| SET Note Cut (*__X__*)								| UBYTE (8-bit)						| *[__X__]* sets the equal amount of ticks between note ON and OFF
-|**64+21<br/>85<br/>0x55**	| Note Cut OFF											|									| Stops the Note Cut
-|**…**						| **…**													| **…**								| **…**
-|**64+92<br/>156<br/>0x9C**	| ADD song tempo (*__X__*)								| UBYTE (8-bit)						| Adds *[__X__]* to the tempo of the song. Total value should be between 0 - 127<br/>**_Note:_** the higher the tempo to more CPU it takes.
-|**64+93<br/>157<br/>0x9D**	| SET song tempo (*__X__*)								| UBYTE (8-bit)						| (Re-)sets *[__X__]* as the tempo of the song. Standard is 25. Value should be between 0 - 127 **_Note:_** the higher the tempo to more CPU it takes.
-|**64+94<br/>158<br/>0x9E**	| GOTO advanced<br/><br/>(*__W__*)<br/>(*__X__*)<br/>(*__Y__*)<br/>(*__Z__*)	| <br/><br/>UBYTE (8-bit)<br/>UBYTE (8-bit)<br/>UBYTE (8-bit)<br/>UBYTE (8-bit)	| **_Note:_** handy command for having an intro<br/>and a repeating song part<br/>For channel __0__ go to track __W__<br/>For channel __1__ go to track __X__<br/>For channel __2__ go to track __Y__<br/>For channel __3__ go to track __Z__
-|**64+95<br/>159<br/>0x9F**	| STOP current channel									|									| Channel is no longer being processed<br/>**_Note:_** if all channels have reached STOP, the song ends
-|~~TBD~~						| ~~TBD~~												| ~~TBD~~							| ~~TBD~~
+void setup() {
+    arduboy.begin();
+    arduboy.setFrameRate(15);
+    arduboy.audio.on();
+    
+    /* Begin playback of song */
+    atm_synth_setup();
+    atm_synth_play_score(score);
+}
+```
+
+##### C++
+``` C++
+...
+#include "ATMlib.h"
+
+ATMsynth ATM;
+
+void setup() {
+    arduboy.begin();
+    arduboy.setFrameRate(15);
+    arduboy.audio.on();
+
+    /* Begin playback of song */
+    ATM.play(score);
+}
+```
 
 
+### Sound effect playback example
 
-#### Thoughts on effects:
+``` C
+...
+#include "atm_synth.h"
 
-**Note:** These are the primitives to be implemented in the playroutine effects processor. Most will have several effect command numbers associated with them for various aspects of the same primitive. Effects can be combined but not stacked, but some combinations may have undesired/interesting interference.
+/* Temporary storage used by sound effect while playing back */
+struct atm_sfx_state sfx_state;
 
-* Volume slide: a gradual increasing or decreasing of the volume.
-* Frequency slide: a gradual increasing or decreasing of the [frequency](https://en.wikipedia.org/wiki/Frequency "frequency wikipedia").
-* Arpeggio: a group of [notes](https://en.wikipedia.org/wiki/Musical_note "note wikipedia") which are rapidly and automatically played one after the other.
-* Retriggering (on [note](https://en.wikipedia.org/wiki/Musical_note "note wikipedia") or by automation): oscillators are restarted either automatically or at the start of each new note.
-* Transposition (also for microtonals): play [notes](https://en.wikipedia.org/wiki/Musical_note "note wikipedia") in a different key, or fine tune notes to provide microtonals; frequencies that are in between notes.
-* Tremolo: a slight, rapid and regular fluctuation in the amplitude/volume of a [note](https://en.wikipedia.org/wiki/Musical_note "note wikipedia").
-* Vibrato: a slight, rapid and regular fluctuation in the [pitch](https://en.wikipedia.org/wiki/Pitch_(music) "pitch wikipedia") of a [note](https://en.wikipedia.org/wiki/Musical_note "note wikipedia").
-* Glissando: controls if and how a gradual frequency slide "snaps" to adjacent notes.
-* Note cut (with delay and automation): provides a method to stutter and adjust note timing.
+void setup() {
+    arduboy.begin();
+    arduboy.setFrameRate(15);
+    arduboy.audio.on();
 
+    // Begin playback of song.
+    atm_synth_setup();
+    atm_synth_play_score(score);
+}
+
+void loop() {
+    if (!(arduboy.nextFrame()))
+        return;
+
+    arduboy.pollButtons();
+
+    if (arduboy.justPressed(B_BUTTON)) {
+        /* Start playback of sfx1 on channel 1 */
+        atm_synth_play_sfx_track(OSC_CH_ONE, &sfx1, &sfx_state);
+    }
+
+    if (arduboy.justPressed(A_BUTTON)) {
+        atm_synth_stop_sfx_track(&sfx_state);
+    }
+
+    arduboy.display();
+}
+```
+
+### Music score memory layout
+
+Music scores have a single byte header describing the format of the following bytes. The smallest possible score layout is _single pattern, mono_ and has 1 byte header plus N bytes for the pattern. The shortest possible score that still produces audio looks like this (5 bytes total):
+
+``` C
+const PROGMEM struct sfx_data {
+    uint8_t fmt;
+    uint8_t pattern0[4];
+} sfx1 = {
+    .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
+    .pattern0 = {
+        /* Use default tempo */
+        /* Volume must be set because it defaults to 0 */
+        ATM_CMD_M_SET_VOLUME(32),
+        ATM_CMD_I_NOTE_C4,
+        ATM_CMD_M_DELAY_TICKS(25),
+        ATM_CMD_I_STOP,
+    },
+};
+```
+
+#### Overview
+
+A score is made up of a common header followed by _chunks_ concatenated one after the other with no padding. The common header has a fixed size of one byte and is always present. Chunks are ordered as follows:
+
+| Order  | Name            | Optional
+|--------|-----------------|--------------
+| 1      | Common header   | N
+| 2      | Pattern info    | Y
+| 3      | Channel info    | Y
+| 4      | Extensions      | Y
+| 5      | Patterns data   | N
+
+
+#### Common header
+
+```-``` means reserved bits. They should be ignored and written as zero.
+
+| Offset | Size         | Name
+|--------|--------------|--------------
+| 0      | 1            | Format ID/Version
+
+```
+b------oc    :  Format ID/Version
+ ||||||||
+ |||||||└->  0  c: channel info chunk present flag
+ ||||||└-->  1  o: pattern info chunk present flag
+ |||||└--->  2  [reserved]
+ ||||└---->  3  [reserved]
+ |||└----->  4  [reserved]
+ ||└------>  5  [reserved]
+ |└------->  6  [reserved]
+ └-------->  7  [reserved]
+
+```
+
+#### Pattern offsets information
+
+This chunk is present if flag ```o``` is set in the common header. 
+
+| Offset | Size              | Name
+|--------|-------------------|--------------
+| 0      | 1                 | Pattern count
+| 1      | 2*[pattern count] | Pattern offsets
+
+
+```
+b--pppppp   : pattern count, p: number of patterns
+-------------------------------------------------------------------
+uint16_t[p] : pattern offsets, array of p elements, each element P
+              is the offset in bytes of the start of pattern P
+              from the beginning of the score data
+              (including the common header).
+```
+
+#### Channel information
+
+This chunk is present if flag ```c``` is set in the common header. 
+
+| Offset | Size              | Name
+|--------|-------------------|--------------
+| 0      | 1                 | Channel count
+| 1      | 2*[pattern count] | Entry patterns
+
+```
+0b------cc   : channel count, c: number of channels
+uint8_t[c]   : entry patterns | array of c elements, each element
+               uint8_t[c_i] is the index of the first pattern played by
+               channel c_i.
+```
+
+#### Reserved for extensions
+
+If the ```c``` flag is set in the header, extensions can be located immediately after pattern info (or immediately after channel info in case it is present) and occupy space up to the beginning of pattern data. When there are no extensions (none is defined for now) pattern data can immediately follow the previous block.
+
+#### Pattern data
+
+When the ```o``` flag is set in the header each pattern's start offset is specified in the pattern information chunk. When the ```o``` flag is not set pattern data follows immediately the end of the channel information chunk, if present, otherwise it follows the common header.
+
+
+| ```o``` and ```c``` flags | Pattern data location
+|---------------------------|-------------------
+| o:0, c:0                  | Immediately after the header. Offset: 1 byte
+| o:0, c:1                  | Immediately after channel information block: 2+[number of channels] bytes
+| o:1, c:0                  | Specified by offset array
+| o:1, c:1                  | Specified by offset array
+
+### Commands encoding
+
+Commands are of two types: immediate when they have no extra parameters and parametrised when they can be followed by parameter bytes. Command bit-space is partitioned as follows:
+
+```
+00nnnnnn : 1-63 note ON number, 0 note OFF (Immediate)
+010ddddd : Delay d+1 ticks (max 32 ticks) (Immediate)
+0110iiii : i = command ID (16 commands) (Immediate)
+0111---- : [reserved]
+1ssscccc : s+1 = parameters byte count (s=7 reserved), c = command ID (16 commands)
+1111---- : [reserved]
+```
+
+#### Immediate command IDs
+
+```
+00 - Glissando/portamento OFF
+01 - Arpeggio OFF
+02 - Note Cut OFF
+03 - Noise re-trigger OFF
+04 - [reserved]
+05 - [reserved]
+06 - Return
+07 - Stop (end pattern marker, stop playback on this channel)
+08 - Transpose OFF
+[09, 15] - [reserved]
+```
+
+Immediate command 1-6 have the same least significant bits as the corresponding parametrised commands below to make the implementation more compact.
+
+#### Parametrised command IDs
+
+Parametrised commands use the lower nibble to encode 16 command IDs and bits 6:4 to encode the number of parameter bytes which follow the command starting at 0 i.e. a value of ```b10000000``` means parametrised command ID 0 followed by 1 parameter byte.
+
+```
+00 - Glissando/portamento
+01 - Arpeggio
+02 - Note Cut
+03 - Noise re-trigger
+04 - Slide FX
+05 - LFO FX
+06 - Call
+07 - [reserved]
+08 - Set transposition
+09 - Add transposition
+10 - Set tempo
+11 - Add tempo
+12 - Set Volume
+13 - Set square wave duty cycle
+14 - Setup pattern loop
+15 - [reserved]
+```
+
+##### Glissando
+
+##### Arpeggio
+
+##### Note Cut
+
+##### Noise re-trigger
+
+##### Slide FX
+
+##### LFO FX
+
+##### Call
+
+```
+Call/Call Repeat - jump to a pattern index and optionally repeat it N times
+
+Parameter count: 1/2
+
+P1
+    Size  : 1 byte
+    Name  : Pattern index to jump to
+    Range : [0:255] (u8)
+
+P2
+    Size  : 1 byte
+    Name  : Repeat times - 1
+    Range : [0:255] (u8)
+    Note  : Default to 0 when not present (play once)
+```
+
+
+##### Set transposition
+
+```
+Set transposition - set transposition in semitones
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Semitones
+    Range : [-128:127] (i8)
+```
+
+##### Add transposition
+
+```
+Add transposition - add to current transposition in semitones
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Semitones
+    Range : [-128:127] (i8)
+```
+
+
+##### Set tempo
+
+```
+Set tempo - set tick rate in Hz
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Tick rate in Hz 
+    Range : [8:255] (u8)
+```
+
+##### Add tempo
+
+```
+Add tempo - add to current tick rate in Hz
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Tick rate in Hz to add or subtract
+    Range : [-128:127] (i8)
+```
+
+##### Set Volume
+
+```
+Set volume - set volume
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Volume
+    Range : [0:63] (u8) for channels 0,1,2 and [0,31] for channel 3 (noise)
+    Note  : The range can be exceeded to cause distortion intentionally
+```
+
+##### Set square wave duty cycle
+
+```
+Set square wave duty cycle - set square wave duty cycle
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Duty cycle
+    Range : [0:255] (u8)
+    Note  : Values from 0 to 255 map to 0%/100% duty cycle
+```
+
+##### Setup pattern loop
+
+```
+Setup pattern loop - set the pattern index to loop to
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Pattern index to loop to when the score finishes
+    Range : [0:255] (u8)
+    Note  : The loop index takes effect when all channels have stopped
+```
