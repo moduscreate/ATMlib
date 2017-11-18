@@ -9,7 +9,7 @@ Arduboy2Base arduboy;
 Sprites sprites;
 ATMsynth ATM;
 
-struct mod_sfx_state sfx_state;
+struct atm_sfx_state sfx_state;
 
 void setup() {
   arduboy.begin();
@@ -27,7 +27,7 @@ void setup() {
  #endif
   // Begin playback of song.
   atm_synth_setup();
-  atm_synth_play_score((uint8_t*)&score);
+  atm_synth_play_score((const uint8_t*)&score);
 }
 
 void loop() {
@@ -40,15 +40,15 @@ void loop() {
   sprites.drawSelfMasked(34, 4, T_arg, 0);
 
   if (arduboy.justPressed(B_BUTTON)) {
-    atm_synth_play_sfx_track(OSC_CH_ONE, (struct mod_sfx*)&sfx1, &sfx_state);
+    atm_synth_play_sfx_track(OSC_CH_ONE, (const uint8_t*)&sfx1, &sfx_state);
   }
 
   if (arduboy.justPressed(A_BUTTON)) {
-    atm_synth_stop_sfx_track(OSC_CH_ONE);
+    atm_synth_stop_sfx_track(&sfx_state);
   }
 
   if (arduboy.justPressed(LEFT_BUTTON)) {
-    atm_synth_play_score((uint8_t*)&score);
+    atm_synth_play_score((const uint8_t*)&score);
   }
 
   if (arduboy.justPressed(RIGHT_BUTTON)) {

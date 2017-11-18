@@ -6,7 +6,7 @@
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
-struct atm_player_state atmlib_state;
+struct atm_synth_state atmlib_state;
 
 #define ATMLIB_TICKRATE_MAX (255)
 #define MAX_VOLUME (63)
@@ -22,7 +22,7 @@ const uint16_t noteTable[64] PROGMEM = {
 };
 #define note_index_2_phase_inc(note_idx) (pgm_read_word(&noteTable[(note_idx) & 0x3F]))
 
-struct channel_state channels[OSC_CH_COUNT];
+struct atm_channel_state channels[OSC_CH_COUNT];
 
 static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv);
 static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
@@ -52,7 +52,7 @@ static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int
 
 #if ATM_HAS_FX_SLIDE
 
-static void slidefx(struct slide_params *slide_params, struct osc_params *osc_params)
+static void slidefx(struct atm_slide_params *slide_params, struct osc_params *osc_params)
 {
 	if (slide_params->slide_amount) {
 		if ((slide_params->slide_count & 0x3F) >= (slide_params->slide_config & 0x3F)) {
@@ -96,17 +96,6 @@ static void slidefx(struct slide_params *slide_params, struct osc_params *osc_pa
 }
 #endif
 
-uint16_t read_vle(const uint8_t **pp) {
-	uint16_t q = 0;
-	uint8_t d;
-	do {
-		q <<= 7;
-		d = pgm_read_byte(*pp++);
-		q |= (d & 0x7F);
-	} while (d & 0x80);
-	return q;
-}
-
 union fmt_hdr {
 	uint16_t u16;
 	struct {
@@ -124,7 +113,7 @@ static const uint8_t *get_entry_pattern_array_ptr(const uint8_t *score)
 	return hdr.f.fmt & 0x01 ? score + sizeof(uint16_t)*pattern_count + 3 : NULL;
 }
 
-static const uint8_t *get_track_start_ptr(struct atm_player_state *score_state, const uint8_t track_index)
+static const uint8_t *get_track_start_ptr(struct atm_synth_state *score_state, const uint8_t track_index)
 {
 	const uint8_t *s = score_state->score_start;
 	union fmt_hdr hdr;
@@ -147,7 +136,7 @@ void atm_synth_setup(void)
 	}
 }
 
-static void atm_synth_init_channel(struct channel_state *ch, struct osc_params *dst, struct atm_player_state *player, uint8_t pattern_index)
+static void atm_synth_init_channel(struct atm_channel_state *ch, struct osc_params *dst, struct atm_synth_state *player, uint8_t pattern_index)
 {
 	memset(ch, 0, sizeof(*ch));
 	ch->mod = 0x7F;
@@ -156,7 +145,7 @@ static void atm_synth_init_channel(struct channel_state *ch, struct osc_params *
 	ch->pstack[0].pattern_index = pattern_index;
 }
 
-static void atm_player_init_state(const uint8_t *score, struct atm_player_state *dst)
+static void atm_player_init_state(const uint8_t *score, struct atm_synth_state *dst)
 {
 	dst->score_start = score;
 	dst->channel_active_mute |= 0b11110000;
@@ -176,10 +165,10 @@ void atm_synth_release_channel(const uint8_t channel_index)
 	channels[channel_index].dst_osc_params = &osc_params_array[channel_index];
 }
 
-void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx, struct mod_sfx_state *sfx_state)
+void atm_synth_play_sfx_track(const uint8_t ch_index, const uint8_t *sfx, struct atm_sfx_state *sfx_state)
 {
+	atm_synth_stop_sfx_track(sfx_state);
 	sfx_state->ch_index = ch_index;
-	atm_synth_stop_sfx_track(ch_index);
 	atm_synth_grab_channel(ch_index, &sfx_state->osc_params);
 	atm_player_init_state((const uint8_t*)sfx, &sfx_state->track_info);
 	/* override active flags so only one channel for is active for the SFX player */
@@ -190,10 +179,10 @@ void atm_synth_play_sfx_track(const uint8_t ch_index, const struct mod_sfx *sfx,
 	osc_set_tick_callback(1, atm_synth_sfx_tick_handler, sfx_state);
 }
 
-void atm_synth_stop_sfx_track(const uint8_t ch_index)
+void atm_synth_stop_sfx_track(struct atm_sfx_state *sfx_state)
 {
 	osc_set_tick_callback(1, NULL, NULL);
-	atm_synth_release_channel(ch_index);
+	atm_synth_release_channel(sfx_state->ch_index);
 }
 
 // stop playing
@@ -255,7 +244,7 @@ void atm_synth_set_score_paused(const uint8_t paused)
 /* include source file directly so the compiler can inline static functions therein */
 #include "cmd_parse.c"
 
-static inline void process_channel(const uint8_t ch_index, struct atm_player_state *score_state, struct channel_state *ch)
+static inline void process_channel(const uint8_t ch_index, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 #if ATM_HAS_FX_NOISE_RETRIG
 	// Noise retriggering
@@ -357,14 +346,14 @@ static inline void process_channel(const uint8_t ch_index, struct atm_player_sta
 
 static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv) {
 	(void)(cb_index);
-	struct mod_sfx_state *sfx_state = (struct mod_sfx_state *)priv;
+	struct atm_sfx_state *sfx_state = (struct atm_sfx_state *)priv;
 
 	const uint8_t sfx_ch_index = sfx_state->ch_index;
 	process_channel(sfx_ch_index, &sfx_state->track_info, &sfx_state->channel_state);
 	osc_set_tick_rate(1, sfx_state->track_info.tick_rate);
 	if (!(sfx_state->track_info.channel_active_mute & 0xF0)) {
 		/* sfx done */
-		atm_synth_stop_sfx_track(sfx_ch_index);
+		atm_synth_stop_sfx_track(sfx_state);
 	}
 }
 
@@ -381,7 +370,7 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 	/* if all channels are inactive, stop playing or check for repeat */
 	if (!(atmlib_state.channel_active_mute & 0xF0)) {
 		for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
-			struct channel_state *const ch = &channels[k];
+			struct atm_channel_state *const ch = &channels[k];
 			/* a quirk in the original implementation does not allow to loop to pattern 0 */
 			if (!ch->loop_pattern_index) {
 				continue;

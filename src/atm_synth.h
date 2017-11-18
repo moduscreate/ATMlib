@@ -4,6 +4,8 @@
 
 #include "isr.h"
 
+/* Adjust the following to reduce memory usage */
+
 #define ATM_PATTERN_STACK_DEPTH (3)
 
 /* Disable all FX to save space */
@@ -35,11 +37,58 @@
 #define ATM_HAS_FX_SLIDE (ATM_HAS_FX_VOL_SLIDE || ATM_HAS_FX_FREQ_SLIDE || ATM_HAS_FX_MOD_SLIDE)
 #define ATM_HAS_FX_LFO (ATM_HAS_FX_TREMOLO || ATM_HAS_FX_VIBRATO)
 
+/* Public API - we will try not to break this, no promises! */
+
 #define ATM_SCORE_FMT_MINIMAL_MONO (0x0)
 #define ATM_SCORE_FMT_FULL_MONO (0x2)
 #define ATM_SCORE_FMT_FULL (0x3)
 
-struct atm_player_state {
+struct atm_synth_state;
+struct atm_sfx_state;
+
+extern struct atm_synth_state atmlib_state;
+
+void atm_synth_setup(void);
+
+void atm_synth_play_score(const uint8_t *score);
+void atm_synth_stop_score(void);
+uint8_t atm_synth_is_score_stopped(void);
+
+void atm_synth_set_score_paused(const uint8_t paused);
+uint8_t atm_synth_get_score_paused(void);
+
+void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save);
+void atm_synth_release_channel(const uint8_t channel_index);
+
+/* Play score as a sound effect on channel_index
+
+Music playback (if any) is muted on channel_index for the duration of sound
+effect playback and resumes when the sound effect is stopped or ran its course.
+
+It is possible to start playback of a new sound effect while one is already
+being played back, the active sound effect will stop and the new one will replace it.
+
+Sound effect scores must be in ATM_SCORE_FMT_MINIMAL_MONO or ATM_SCORE_FMT_FULL_MONO format.
+*/
+void atm_synth_play_sfx_track(const uint8_t channel_index, const uint8_t *score,  struct atm_sfx_state *sfx_state);
+
+/* Stop a previously started sound effect score */
+void atm_synth_stop_sfx_track(struct atm_sfx_state *sfx_state);
+
+/* Check if a sound effect score is active */
+uint8_t atm_synth_is_sfx_stopped(struct atm_sfx_state *sfx_state);
+
+/* Private structures - anything beyond this point is considered internal to the library
+
+structs are only made available in this file so clients can allocate them statically.
+All fields shoudl be considered private.
+
+If you think you have a valid use case for exposing some feature please
+get in touch with the maintainers.
+
+*/
+
+struct atm_synth_state {
 	const uint8_t *score_start;
 	uint8_t tick_rate;
 	uint8_t channel_active_mute; //0b11110000;
@@ -54,14 +103,9 @@ struct atm_player_state {
 	//                               └-------->  7  channel 3 is Active (0 = false / 1 = true)
 };
 
-struct mod_sfx {
-	uint8_t num_tracks;
-	uint16_t tracks_offset[];
-};
-
 #if ATM_HAS_FX_SLIDE
 
-struct slide_params {
+struct atm_slide_params {
 	int8_t slide_amount;
 	uint8_t slide_config;
 	uint8_t slide_count;
@@ -69,13 +113,13 @@ struct slide_params {
 
 #endif
 
-struct pattern_state {
+struct atm_pattern_state {
 	const uint8_t *next_cmd_ptr;
 	uint8_t pattern_index;
 	uint8_t repetitions_counter;
 };
 
-struct channel_state {
+struct atm_channel_state {
 	uint8_t note;
 	uint8_t vol;
 	uint8_t mod;
@@ -84,7 +128,7 @@ struct channel_state {
 	int8_t trans_config;
 
 	// Nesting
-	struct pattern_state pstack[ATM_PATTERN_STACK_DEPTH];
+	struct atm_pattern_state pstack[ATM_PATTERN_STACK_DEPTH];
 	uint8_t pstack_index;
 	uint8_t loop_pattern_index;
 
@@ -92,7 +136,7 @@ struct channel_state {
 
 #if ATM_HAS_FX_SLIDE
 	// Volume & Frequency slide FX
-	struct slide_params vf_slide;
+	struct atm_slide_params vf_slide;
 #endif
 
 #if ATM_HAS_FX_NOTE_RETRIG
@@ -122,28 +166,9 @@ struct channel_state {
 #endif
 };
 
-struct mod_sfx_state {
+struct atm_sfx_state {
 	uint8_t ch_index;
-	struct atm_player_state track_info;
-	struct channel_state channel_state;
+	struct atm_synth_state track_info;
+	struct atm_channel_state channel_state;
 	struct osc_params osc_params;
 };
-
-extern struct atm_player_state atmlib_state;
-
-uint16_t read_vle(const uint8_t **pp);
-
-void atm_synth_setup(void);
-
-void atm_synth_play_score(const uint8_t *score);
-void atm_synth_stop_score(void);
-uint8_t atm_synth_is_score_stopped(void);
-
-void atm_synth_set_score_paused(const uint8_t paused);
-uint8_t atm_synth_get_score_paused(void);
-
-void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save);
-void atm_synth_release_channel(const uint8_t channel_index);
-
-void atm_synth_play_sfx_track(const uint8_t channel_index, const struct mod_sfx *sfx, struct mod_sfx_state *sfx_state);
-void atm_synth_stop_sfx_track(const uint8_t channel_index);

@@ -35,6 +35,7 @@ typedef void (*osc_tick_callback)(const uint8_t cb_index, void *priv);
 
 void osc_setup(void);
 
+/* tick_hz < 8 are currently not supported */
 void osc_set_tick_rate(const uint8_t callback_idx, const uint16_t rate_hz);
 void osc_set_tick_callback(const uint8_t callback_idx, const osc_tick_callback cb, const void *priv);
 void osc_get_tick_callback(const uint8_t callback_idx, osc_tick_callback *cb, void **priv);

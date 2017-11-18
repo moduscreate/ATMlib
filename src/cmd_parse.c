@@ -7,7 +7,7 @@
 /* #define log_cmd() to oblivion */
 #define log_cmd(a,b,c,d)
 
-static void cmd_note(const uint8_t cmd, struct channel_state *ch)
+static void cmd_note(const uint8_t cmd, struct atm_channel_state *ch)
 {
 	ch->note = cmd;
 	if (ch->note) {
@@ -18,7 +18,7 @@ static void cmd_note(const uint8_t cmd, struct channel_state *ch)
 	ch->dst_osc_params->mod = ch->mod;	
 }
 
-static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
+static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 /* Immediate commands */
 	(void)(ch_index);
@@ -76,7 +76,7 @@ stop_channel:
 	ch->delay = 0xFFFF;
 }
 
-static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
+static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 	(void)(ch_index);
 	/* Parametrised commands */
@@ -197,7 +197,7 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 }
 }
 
-static void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_player_state *score_state, struct channel_state *ch)
+static void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 	if (cmd < 64) {
 		/* 0 … 63 : NOTE ON/OFF */
