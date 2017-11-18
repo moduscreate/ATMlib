@@ -142,16 +142,11 @@ A score is made up of a common header followed by _chunks_ concatenated one afte
 | 0      | 1            | Format ID/Version
 
 ```
-b------oc    :  Format ID/Version
+b------oc    :   Format ID/Version
  ||||||||
- |||||||└->  0  c: channel info chunk present flag
- ||||||└-->  1  o: pattern info chunk present flag
- |||||└--->  2  [reserved]
- ||||└---->  3  [reserved]
- |||└----->  4  [reserved]
- ||└------>  5  [reserved]
- |└------->  6  [reserved]
- └-------->  7  [reserved]
+ |||||||└->  0   c: channel info chunk present flag
+ ||||||└-->  1   o: pattern info chunk present flag
+ └└└└└└--->  7:2 [reserved]
 
 ```
 
@@ -261,15 +256,129 @@ Parametrised commands use the lower nibble to encode 16 command IDs and bits 6:4
 
 ##### Glissando
 
+```
+Glissando - Raise or lower the current note by one semitone every N ticks
+
+Parameter count: 1
+
+P1
+    Size   : 1 byte
+    Name   : Effect configuration
+    Format : bdnnnnnnn
+              |└└└└└└└-> ticks between each note change minus one
+              └--------> 1: shift pitch down, 0: shift pitch up
+```
+
 ##### Arpeggio
+
+```
+Arpeggio - Play a second and optionally third note after each played note
+
+Parameter count: 2
+
+P1
+    Size   : 1 byte
+    Name   : chord
+    Format : bkkkknnnn
+              ||||└└└└-> 3nd note shift: semitones to add to the 2nd [0,14]
+              └└└└-----> 2nd note shift: semitones to add to the 1st [0,14]
+
+P2
+    Size   : 1 byte
+    Name   : Effect configuration
+    Format : b-edttttt
+              |||└└└└└-> ticks between note change minus one [0, 31]
+              ||└------> 1: retrigger, 0: no retrigger
+              |└-------> 1: skip 3rd note, 0: play 3rd note
+              └--------> [reserved]
+```
 
 ##### Note Cut
 
+```
+Note cut - Stop note automatically after N ticks
+
+Parameter count: 1
+
+P1
+    Size  : 1 byte
+    Name  : Note duration
+    Range : [0,255] (u8)
+```
+
 ##### Noise re-trigger
+
+```
+Noise re-trigger - Continuously reseed the noise PRNG (pseudo random number generator)
+
+Parameter count: 1
+
+P1
+    Size   : 1 byte
+    Name   : Effect configuration
+    Format : baaaaaass
+              ||||||└└-> ticks between reseeding minus one
+              └└└└└└---> Seed value
+```
 
 ##### Slide FX
 
+```
+Slide/Slide advanced - Ramp oscillator parameter up or down
+
+Parameter count: 1/2/3
+
+P1
+    Size   : 1 byte
+    Name   : Oscillator parameter to slide
+    Note   : When only this parameter is present the effect is turned off
+    Format : b------pp
+              ||||||└└-> Oscillator parameter 0:vol, 1:freq, 3:mod
+              └└└└└└---> [reserved]
+
+P2
+    Size   : 1 byte
+    Name   : Amount to slide up or down per tick (or each N ticks)
+    Range  : [-128:127] (i8)
+
+P3
+    Size   : 1 byte
+    Name   : Configuration
+    Note   : Defaults to 0 when not present (clamp, )
+    Format : bo-nnnnnn
+              ||└└└└└└-> Ticks between update minus one
+              |└-------> [reserved]
+              └--------> Overflow flag 1: let overflow, 0: clamp
+```
+
 ##### LFO FX
+
+```
+LFO - Low frequency oscillator applied to one of the synth parameters
+
+Parameter count: 1/2/3
+
+P1
+    Size   : 1 byte
+    Name   : Oscillator parameter to modulate
+    Note   : When only this parameter is present the effect is turned off
+    Format : b------pp
+              ||||||└└-> Oscillator parameter 0:vol, 1:freq, 3:mod
+              └└└└└└---> [reserved]
+
+P2
+    Size   : 1 byte
+    Name   : LFO depth
+    Range  : [0:255] (u8)
+
+P3
+    Size   : 1 byte
+    Name   : Configuration
+    Note   : Defaults to 0 when not present (update every tick)
+    Format : b---nnnnn
+              |||└└└└└-> Ticks between update minus one
+              └└└------> [reserved]
+```
 
 ##### Call
 
