@@ -166,7 +166,7 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 
 #if ATM_HAS_FX_SLIDE
 		case ATM_CMD_ID_SLIDE:
-			/* b------pp s = 1:on 0:off, pp = param: vol, freq, mod */
+			/* b------pp s = pp = param: vol, freq, mod */
 			if (csz > 1) {
 				/* FX on */
 				ch->vf_slide.slide_count = data[0] << 6;
@@ -181,7 +181,7 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 
 #if ATM_HAS_FX_LFO
 		case ATM_CMD_ID_LFO:
-			/* b------pp s = 1:on 0:off, pp = param: vol, freq, mod */
+			/* b------pp s = pp = param: vol, freq, mod */
 			if (csz > 1) {
 				/* FX on */
 				ch->treviDepth = data[1];
