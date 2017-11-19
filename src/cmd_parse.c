@@ -70,17 +70,19 @@ stop_channel:
 	ch->delay = 0xFFFF;
 }
 
-static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cmd_generic *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 	(void)(ch_index);
 	/* Parametrised commands */
+
+	const uint8_t csz = ((cmd->id >> 4) & 0x7)+1;
 
 	switch (cmd->id & 0x0F) {
 		case ATM_CMD_ID_CALL:
 			/* ignore call command if the stack is full */
 			if (ch->pstack_index < ATM_PATTERN_STACK_DEPTH-1) {
 				uint8_t new_track = cmd->params[0];
-				uint8_t new_counter = cmd->sz > 2 ? cmd->params[1] : 0;
+				uint8_t new_counter = csz > 1 ? cmd->params[1] : 0;
 				if (new_track != pattern_index(ch)) {
 					/* push new pattern on stack */
 					ch->pstack_index++;
@@ -153,11 +155,11 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 #if ATM_HAS_FX_SLIDE
 		case ATM_CMD_ID_SLIDE:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (cmd->sz > 2) {
+			if (csz > 1) {
 				/* FX on */
 				ch->vf_slide.slide_count = cmd->params[0] << 6;
 				ch->vf_slide.slide_amount = cmd->params[1];
-				ch->vf_slide.slide_config = cmd->sz > 3 ? cmd->params[2] : 0;
+				ch->vf_slide.slide_config = csz > 2 ? cmd->params[2] : 0;
 			} else {
 				/* FX off */
 				ch->vf_slide.slide_amount = 0;
@@ -168,7 +170,7 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 #if ATM_HAS_FX_LFO
 		case ATM_CMD_ID_LFO:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (cmd->sz > 2) {
+			if (csz > 1) {
 				/* FX on */
 				ch->treviDepth = cmd->params[1];
 				ch->treviConfig = cmd->params[2] | (cmd->params[0] << 6);
@@ -182,7 +184,7 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 	}
 }
 
-static void process_cmd(const uint8_t ch_index, const struct atm_cmd_generic *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 	if (cmd->id < 64) {
 		/* 0 … 63 : NOTE ON/OFF */
@@ -208,5 +210,10 @@ static void process_cmd(const uint8_t ch_index, const struct atm_cmd_generic *cm
 	} else if (type & 0x80) {
 		process_parametrised_cmd(ch_index, cmd, score_state, ch);
 	}
+}
+
+void ext_synth_command(const uint8_t ch_index, const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+{
+	process_cmd(ch_index, cmd, score_state, ch);
 }
 #endif

@@ -45,8 +45,16 @@
 
 struct atm_synth_state;
 struct atm_sfx_state;
+struct atm_channel_state;
+struct atm_synth_ext;
+struct atm_cmd_data;
 
-extern struct atm_synth_state atmlib_state;
+typedef void (*atm_synth_ext_callback)(const uint8_t channel_count, struct atm_synth_state *synth_state, struct atm_channel_state *ch, struct atm_synth_ext *synth_ext);
+
+struct atm_synth_ext {
+	atm_synth_ext_callback cb;
+	void *priv;
+};
 
 void atm_synth_setup(void);
 
@@ -59,6 +67,9 @@ uint8_t atm_synth_get_score_paused(void);
 
 void atm_synth_grab_channel(const uint8_t channel_index, struct osc_params *save);
 void atm_synth_release_channel(const uint8_t channel_index);
+
+void atm_synth_play_ext(const struct atm_synth_ext *synth_ext);
+void ext_synth_command(const uint8_t ch_index, const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch);
 
 /* Play score as a sound effect on channel_index
 
@@ -171,4 +182,9 @@ struct atm_sfx_state {
 	struct atm_synth_state track_info;
 	struct atm_channel_state channel_state;
 	struct osc_params osc_params;
+};
+
+struct atm_cmd_data {
+	uint8_t id;
+	uint8_t params[3];
 };

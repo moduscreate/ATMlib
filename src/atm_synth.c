@@ -9,12 +9,6 @@
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
-struct atm_cmd_generic {
-	uint8_t sz; /* size including the command byte */
-	uint8_t id;
-	uint8_t params[3];
-};
-
 struct atm_synth_state atmlib_state;
 
 #define ATMLIB_TICKRATE_MAX (255)
@@ -39,10 +33,27 @@ struct atm_channel_state channels[OSC_CH_COUNT];
 
 static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv);
 static void atm_synth_sfx_tick_handler(uint8_t cb_index, void *priv);
+static void atm_synth_ext_tick_handler(uint8_t cb_index, void *priv);
 
 #define pattern_index(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].pattern_index)
 #define pattern_cmd_ptr(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].next_cmd_ptr)
 #define pattern_repetition_counter(ch_ptr) ((ch_ptr)->pstack[(ch_ptr)->pstack_index].repetitions_counter)
+
+/* ---- */
+
+static void fetch_cmd(const uint8_t ch_index, struct atm_channel_state *ch, struct atm_cmd_data *cmd)
+{
+	(void)(ch_index);
+	/*
+	Reading the command first and then its parameters
+	takes up more progmem so we read a fixed amount.
+	maximum command size is 4 right now
+	*/
+	memcpy_P(cmd, pattern_cmd_ptr(ch), sizeof(struct atm_cmd_data));
+	/* Increment score pointer with the real command size */
+	const uint8_t csz = cmd->id & 0x80 ? ((cmd->id >> 4) & 0x7)+2 : 1;
+	ch->pstack[ch->pstack_index].next_cmd_ptr += csz;
+}
 
 #if ATM_HAS_FX_GLISSANDO || ATM_HAS_FX_SLIDE
 
@@ -221,6 +232,24 @@ void atm_synth_play_score(const uint8_t *score)
 	osc_set_tick_callback(0, atm_synth_score_tick_handler, NULL);
 }
 
+/* FIXME: the corresponding 'stop' function is missing */
+void atm_synth_play_ext(const struct atm_synth_ext *synth_ext)
+{
+	/* stop current score if any */
+	atm_synth_stop_score();
+	/* Set default score data */
+	atm_player_init_state(NULL, &atmlib_state);
+	osc_set_tick_rate(0, atmlib_state.tick_rate);
+	/* Read track count */
+	/* Fetch starting points for each track */
+	for (unsigned n = 0; n < ARRAY_SIZE(channels); n++) {
+		atm_synth_init_channel(&channels[n],
+			channels[n].dst_osc_params, &atmlib_state, 0);
+	}
+	/* Start playback */
+	osc_set_tick_callback(0, atm_synth_ext_tick_handler, synth_ext);
+}
+
 uint8_t atm_synth_is_score_stopped(void)
 {
 	return !(atmlib_state.channel_active_mute & 0xF0);
@@ -257,8 +286,10 @@ void atm_synth_set_score_paused(const uint8_t paused)
 /* include source file directly so the compiler can inline static functions therein */
 #include "cmd_parse.c"
 
-static inline void process_channel(const uint8_t ch_index, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+static void process_fx(const uint8_t ch_index, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
+	(void)(score_state);
+
 #if ATM_HAS_FX_NOISE_RETRIG
 	// Noise retriggering
 	if (ch_index == OSC_CH_THREE && ch->reConfig && (ch->reCount++ >= (ch->reConfig & 0x03))) {
@@ -346,25 +377,33 @@ static inline void process_channel(const uint8_t ch_index, struct atm_synth_stat
 		}
 	}
 #endif
+}
+
+static void process_channel(const uint8_t ch_index, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+{
+	process_fx(ch_index, score_state, ch);
 
 	while (ch->delay == 0) {
-		struct atm_cmd_generic cmd;
-		/*
-		Reading the command first and then its parameters
-		takes up more progmem so we read a fixed amount.
-		maximum command size is 4 right now
-		*/
-		memcpy_P(&cmd.id, pattern_cmd_ptr(ch), sizeof(struct atm_cmd_generic)-1);
-		/* Increment score pointer with the real command size */
-		const uint8_t csz = cmd.id & 0x80 ? ((cmd.id >> 4) & 0x7)+2 : 1;
-		cmd.sz = csz;
-		ch->pstack[ch->pstack_index].next_cmd_ptr += csz;
+		struct atm_cmd_data cmd;
+		fetch_cmd(ch_index, ch, &cmd)
 		log_cmd(ch_index, cmd.id, csz, cmd.params);
 		process_cmd(ch_index, &cmd, score_state, ch);
 	}
 
 	if (ch->delay != 0xFFFF) {
 		ch->delay--;
+	}
+}
+
+static void atm_synth_ext_tick_handler(uint8_t cb_index, void *priv) {
+	(void)(cb_index);
+	struct atm_synth_ext *ext = (struct atm_synth_ext *)priv;
+
+	for (uint8_t ch_index = 0; ch_index < ARRAY_SIZE(channels); ch_index++)
+	{
+		process_fx(ch_index, &atmlib_state, &channels[ch_index]);
+		ext->cb(OSC_CH_COUNT, &atmlib_state, channels, ext);
+		osc_set_tick_rate(0, atmlib_state.tick_rate);
 	}
 }
 
