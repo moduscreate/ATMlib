@@ -30,6 +30,11 @@ const uint16_t noteTable[64] PROGMEM = {
 	8779, 9301, 9854,
 };
 
+static uint16_t note_index_2_phase_inc(const uint8_t note_idx)
+{
+	return pgm_read_word(&noteTable[(note_idx) & 0x3F]);
+}
+
 struct atm_channel_state channels[OSC_CH_COUNT];
 
 static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv);
