@@ -1,7 +1,7 @@
 #ifndef SONG_H
 #define SONG_H
 
-#include "cmd_constants.h"
+#include "atm_cmd_constants.h"
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 #define NUM_PATTERNS(struct_) (ARRAY_SIZE( ((struct_ *)0)->patterns_offset))

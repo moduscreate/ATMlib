@@ -2,7 +2,7 @@
 /* compile only when included by atm_synth.c */
 #ifdef ATM_PATTERN_STACK_DEPTH
 
-#include "cmd_constants.h"
+#include "atm_cmd_constants.h"
 
 static void cmd_note(const uint8_t note, struct atm_channel_state *ch)
 {
