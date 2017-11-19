@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <avr/interrupt.h>
-#include "isr.h"
+#include "osc.h"
 
 static void osc_reset(void);
 static void osc_setactive(const uint8_t active_flag);

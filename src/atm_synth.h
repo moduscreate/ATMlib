@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "isr.h"
+#include "osc.h"
 
 /* Adjust the following to reduce memory usage */
 
