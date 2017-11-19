@@ -4,25 +4,19 @@
 
 #include "cmd_constants.h"
 
-/* #define log_cmd() to oblivion */
-#define log_cmd(a,b,c,d)
-
-static void cmd_note(const uint8_t cmd, struct atm_channel_state *ch)
+static void cmd_note(const uint8_t note, struct atm_channel_state *ch)
 {
-	ch->note = cmd;
-	if (ch->note) {
-		ch->note += ch->trans_config;
-	}
+	ch->note = note ? note + ch->trans_config : note;
 	ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->note);
-	ch->dst_osc_params->vol = cmd ? ch->vol : 0;
+	ch->dst_osc_params->vol = note ? ch->vol : 0;
 	ch->dst_osc_params->mod = ch->mod;	
 }
 
-static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 /* Immediate commands */
 	(void)(ch_index);
-	switch (cmd) {
+	switch (cmd_id) {
 #if ATM_HAS_FX_GLISSANDO
 		case ATM_CMD_I_GLISSANDO_OFF:
 			ch->glisConfig = 0;
@@ -76,25 +70,17 @@ stop_channel:
 	ch->delay = 0xFFFF;
 }
 
-static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cmd_generic *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 	(void)(ch_index);
 	/* Parametrised commands */
 
-	const uint8_t csz = ((cmd >> 4) & 0x7)+1;
-{
-	uint8_t data[csz];
-
-	memcpy_P(data, pattern_cmd_ptr(ch), csz);
-	pattern_cmd_ptr(ch) += csz;
-
-	log_cmd(ch_index, cmd, csz, data);
-	switch (cmd & 0x0F) {
+	switch (cmd->id & 0x0F) {
 		case ATM_CMD_ID_CALL:
 			/* ignore call command if the stack is full */
 			if (ch->pstack_index < ATM_PATTERN_STACK_DEPTH-1) {
-				uint8_t new_track = data[0];
-				uint8_t new_counter = csz > 1 ? data[1] : 0;
+				uint8_t new_track = cmd->params[0];
+				uint8_t new_counter = cmd->sz > 2 ? cmd->params[1] : 0;
 				if (new_track != pattern_index(ch)) {
 					/* push new pattern on stack */
 					ch->pstack_index++;
@@ -108,70 +94,70 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 
 #if ATM_HAS_FX_GLISSANDO
 		case ATM_CMD_ID_GLISSANDO_ON:
-			ch->glisConfig = *data;
+			ch->glisConfig = cmd->params[0];
 			ch->glisCount = 0;
 			break;
 #endif
 
 #if ATM_HAS_FX_ARPEGGIO
 		case ATM_CMD_ID_ARPEGGIO_ON:
-			ch->arpNotes = data[0];
-			ch->arpTiming = data[1];
+			ch->arpNotes = cmd->params[0];
+			ch->arpTiming = cmd->params[1];
 			break;
 #endif
 
 #if ATM_HAS_FX_NOTECUT
 		case ATM_CMD_ID_NOTECUT_ON:
 			ch->arpNotes = 0xFF;
-			ch->arpTiming = data[0];
+			ch->arpTiming = cmd->params[0];
 			break;
 #endif
 
 #if ATM_HAS_FX_NOISE_RETRIG
 		case ATM_CMD_ID_NOISE_RETRIG_ON:
-			ch->reConfig = data[0];
+			ch->reConfig = cmd->params[0];
 			ch->reCount = 0;
 			break;
 #endif
 
 		case ATM_CMD_ID_SET_TRANSPOSITION:
-			ch->trans_config = data[0];
+			ch->trans_config = cmd->params[0];
 			break;
 		case ATM_CMD_ID_ADD_TRANSPOSITION:
-			ch->trans_config += (int8_t)data[0];
+			ch->trans_config += (int8_t)cmd->params[0];
 			break;
 		case ATM_CMD_ID_SET_TEMPO:
-			score_state->tick_rate = data[0];
+			score_state->tick_rate = cmd->params[0];
 			break;
 		case ATM_CMD_ID_ADD_TEMPO:
-			score_state->tick_rate += (int8_t)data[0];
+			score_state->tick_rate += (int8_t)cmd->params[0];
 			break;
 		case ATM_CMD_ID_SET_VOLUME:
 		{
-			const uint8_t vol = data[0];
+			const uint8_t vol = cmd->params[0];
 			ch->vol = vol;
 			ch->dst_osc_params->vol = vol;
 			break;
 		}
 		case ATM_CMD_ID_SET_MOD:
 		{
-			const uint8_t mod = data[0];
+			const uint8_t mod = cmd->params[0];
 			ch->mod = mod;
 			ch->dst_osc_params->mod = mod;
 			break;
 		}
 		case ATM_CMD_ID_SET_LOOP_PATTERN:
-			ch->loop_pattern_index = data[0];
+			ch->loop_pattern_index = cmd->params[0];
 			break;
 
 #if ATM_HAS_FX_SLIDE
 		case ATM_CMD_ID_SLIDE:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (csz > 1) {
+			if (cmd->sz > 2) {
 				/* FX on */
-				ch->vf_slide.slide_count = data[0] << 6;
-				ch->vf_slide.slide_amount = data[1];
-				ch->vf_slide.slide_config = csz > 2 ? data[2] : 0;
+				ch->vf_slide.slide_count = cmd->params[0] << 6;
+				ch->vf_slide.slide_amount = cmd->params[1];
+				ch->vf_slide.slide_config = cmd->sz > 3 ? cmd->params[2] : 0;
 			} else {
 				/* FX off */
 				ch->vf_slide.slide_amount = 0;
@@ -182,10 +168,10 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 #if ATM_HAS_FX_LFO
 		case ATM_CMD_ID_LFO:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (csz > 1) {
+			if (cmd->sz > 2) {
 				/* FX on */
-				ch->treviDepth = data[1];
-				ch->treviConfig = data[2] | (data[0] << 6);
+				ch->treviDepth = cmd->params[1];
+				ch->treviConfig = cmd->params[2] | (cmd->params[0] << 6);
 				ch->treviCount = 0;
 			} else {
 				/* FX off */
@@ -195,13 +181,12 @@ static void process_parametrised_cmd(const uint8_t ch_index, const uint8_t cmd, 
 #endif
 	}
 }
-}
 
-static void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+static void process_cmd(const uint8_t ch_index, const struct atm_cmd_generic *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
-	if (cmd < 64) {
+	if (cmd->id < 64) {
 		/* 0 … 63 : NOTE ON/OFF */
-		cmd_note(cmd, ch);
+		cmd_note(cmd->id, ch);
 
 #if ATM_HAS_FX_NOTE_RETRIG
 		/* ARP retriggering */
@@ -209,20 +194,17 @@ static void process_cmd(const uint8_t ch_index, const uint8_t cmd, struct atm_sy
 			ch->arpCount = 0;
 		}
 #endif
-		log_cmd(ch_index, cmd, 0, NULL);
 		return;
 	}
 
 	/* Cmd type is the 3 MSBs */
-	const uint8_t type = cmd & 0xE0;
+	const uint8_t type = cmd->id & 0xE0;
 	if (type == 0x40) {
 		/* delay */
-		ch->delay = (cmd & 0x3F)+1;
-		log_cmd(ch_index, cmd, 0, NULL);
+		ch->delay = (cmd->id & 0x3F)+1;
 	} else if (type == 0x60) {
 		/* immediate */
-		process_immediate_cmd(ch_index, cmd, score_state, ch);
-		log_cmd(ch_index, cmd, 0, NULL);
+		process_immediate_cmd(ch_index, cmd->id, score_state, ch);
 	} else if (type & 0x80) {
 		process_parametrised_cmd(ch_index, cmd, score_state, ch);
 	}

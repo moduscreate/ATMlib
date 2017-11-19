@@ -4,7 +4,16 @@
 
 #include "atm_synth.h"
 
+/* #define log_cmd() to oblivion */
+#define log_cmd(a,b,c,d)
+
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
+
+struct atm_cmd_generic {
+	uint8_t sz; /* size including the command byte */
+	uint8_t id;
+	uint8_t params[3];
+};
 
 struct atm_synth_state atmlib_state;
 
@@ -20,7 +29,6 @@ const uint16_t noteTable[64] PROGMEM = {
 	4389, 4650, 4927, 5220, 5530, 5859, 6207, 6577, 6968, 7382, 7821, 8286,
 	8779, 9301, 9854,
 };
-#define note_index_2_phase_inc(note_idx) (pgm_read_word(&noteTable[(note_idx) & 0x3F]))
 
 struct atm_channel_state channels[OSC_CH_COUNT];
 
@@ -335,8 +343,19 @@ static inline void process_channel(const uint8_t ch_index, struct atm_synth_stat
 #endif
 
 	while (ch->delay == 0) {
-		const uint8_t cmd = pgm_read_byte(ch->pstack[ch->pstack_index].next_cmd_ptr++);
-		process_cmd(ch_index, cmd, score_state, ch);
+		struct atm_cmd_generic cmd;
+		/*
+		Reading the command first and then its parameters
+		takes up more progmem so we read a fixed amount.
+		maximum command size is 4 right now
+		*/
+		memcpy_P(&cmd.id, pattern_cmd_ptr(ch), sizeof(struct atm_cmd_generic)-1);
+		/* Increment score pointer with the real command size */
+		const uint8_t csz = cmd.id & 0x80 ? ((cmd.id >> 4) & 0x7)+2 : 1;
+		cmd.sz = csz;
+		ch->pstack[ch->pstack_index].next_cmd_ptr += csz;
+		log_cmd(ch_index, cmd.id, csz, cmd.params);
+		process_cmd(ch_index, &cmd, score_state, ch);
 	}
 
 	if (ch->delay != 0xFFFF) {
