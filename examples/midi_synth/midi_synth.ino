@@ -21,15 +21,15 @@ void synth_ext_callback(const uint8_t channel_count, atm_synth_state *synth_stat
     Serial.write(buf);
     if (rx.header == 0x08 || (rx.header == 0x09 && !rx.byte3)) {
       const uint8_t cmd[] = {ATM_CMD_I_NOTE_OFF};
-      ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, ch);
+      ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, &ch[midi_ch_idx]);
     } else if (rx.header == 0x09 && rx.byte3) {
       {
-        const uint8_t cmd[] = {ATM_CMD_M_SET_VOLUME(31)};
-        ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, ch);
+        const uint8_t cmd[] = {ATM_CMD_M_SET_VOLUME(63)};
+        ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, &ch[midi_ch_idx]);
       }
       {
         const uint8_t cmd[] = {ATM_CMD_M_NOTE((rx.byte2-35) & 0x3F)};
-        ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, ch);
+        ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, &ch[midi_ch_idx]);
       }
     }
   }
