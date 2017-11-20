@@ -6,6 +6,8 @@
 
 Arduboy2Base arduboy;
 
+bool setup_fx = false;
+
 void synth_ext_callback(const uint8_t channel_count, atm_synth_state *synth_state, struct atm_channel_state *ch, struct atm_synth_ext *synth_ext)
 {
   (void)(synth_ext);
@@ -19,12 +21,17 @@ void synth_ext_callback(const uint8_t channel_count, atm_synth_state *synth_stat
   } else {
     sprintf(buf, "MIDI rx: %02hhX %02hhX %02hhX %02hhX\n", rx.header, rx.byte1, rx.byte2, rx.byte3);
     Serial.write(buf);
+    if (!setup_fx) {
+        const uint8_t cmd[] = {ATM_CMD_M_ARPEGGIO_ON(0x43, 1)};
+        ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, &ch[midi_ch_idx]);
+        setup_fx = true;
+    }
     if (rx.header == 0x08 || (rx.header == 0x09 && !rx.byte3)) {
       const uint8_t cmd[] = {ATM_CMD_I_NOTE_OFF};
       ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, &ch[midi_ch_idx]);
     } else if (rx.header == 0x09 && rx.byte3) {
       {
-        const uint8_t cmd[] = {ATM_CMD_M_SET_VOLUME(63)};
+        const uint8_t cmd[] = {ATM_CMD_M_SET_VOLUME(rx.byte3)};
         ext_synth_command(midi_ch_idx, (const atm_cmd_data *)cmd, synth_state, &ch[midi_ch_idx]);
       }
       {
