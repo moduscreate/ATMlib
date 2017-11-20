@@ -6,6 +6,8 @@
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 #define NUM_PATTERNS(struct_) (ARRAY_SIZE( ((struct_ *)0)->patterns_offset))
 
+/*** TO DO: Replace below with new song output **/
+
 const PROGMEM struct score_data {
   uint8_t fmt;
   uint8_t num_patterns;
@@ -122,6 +124,9 @@ const PROGMEM struct score_data {
     ATM_CMD_I_RETURN,
   },
 };
+
+
+/** END TO DO **/
 
 const PROGMEM struct sfx1_data {
   uint8_t fmt;
