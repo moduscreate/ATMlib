@@ -134,13 +134,66 @@ const PROGMEM struct volume_slide_test_sfx {
   },
 };
 
+const PROGMEM struct tremolo_test_sfx {
+  uint8_t fmt;
+  uint8_t pattern0[45];
+} tremolo_test_sfx = {
+  .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
+  .pattern0 = {
+    ATM_CMD_M_SET_TEMPO(32),
+    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_I_NOTE_F5,
+    /* sustain the note at volume 32 to create a baseline */
+    ATM_CMD_M_DELAY_TICKS(16),
+    ATM_CMD_M_TREMOLO_ON(8, 4),
+    ATM_CMD_M_DELAY_TICKS_1(64),
+    ATM_CMD_M_TREMOLO_ON(16, 2),
+    ATM_CMD_M_DELAY_TICKS_1(64),
+    ATM_CMD_M_TREMOLO_ON(4, 8),
+    ATM_CMD_M_DELAY_TICKS_1(64),
+    ATM_CMD_M_TREMOLO_OFF,
+    /* sustain the note at volume 32 to create a baseline */
+    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_M_DELAY_TICKS(16),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_STOP,
+  },
+};
+
+const PROGMEM struct mod_slide_test_sfx {
+  uint8_t fmt;
+  uint8_t pattern0[45];
+} mod_slide_test_sfx = {
+  .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
+  .pattern0 = {
+    ATM_CMD_M_SET_TEMPO(128),
+    ATM_CMD_M_SET_VOLUME(64),
+    ATM_CMD_M_SET_MOD(127),
+    ATM_CMD_I_NOTE_C4,
+    ATM_CMD_M_DELAY_TICKS(32),
+    ATM_CMD_M_SLIDE_MOD_ON(1),
+    ATM_CMD_M_DELAY_TICKS_1(128),
+    /* mod should be now 255 */
+    ATM_CMD_M_SLIDE_MOD_ON(-1),
+    ATM_CMD_M_DELAY_TICKS_1(256),
+    /* mod should be now 0 */
+    ATM_CMD_M_SLIDE_MOD_ON(1),
+    ATM_CMD_M_DELAY_TICKS_1(128),
+    /* volume should be now 127 */
+    ATM_CMD_M_SLIDE_MOD_OFF,
+    ATM_CMD_M_DELAY_TICKS(32),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_STOP,
+  },
+};
+
 struct test {
   const char *test_name;
   const char *test_exp_desc;
   const uint8_t *sfx_data;
 };
 
-/* Ruler                                       012345678901234567890 */
+                                     /* Ruler: 012345678901234567890 */
 const char tempo_test_name[] PROGMEM =        "Tempo test";
 const char tempo_test_desc[] PROGMEM =        "5 one second tones \n"
                                               "spaced by one second \n"
@@ -162,7 +215,21 @@ const char volume_slide_test_desc[] PROGMEM = "Slide volume up in 1\n"
                                               "second then down in 1\n"
                                               "second for 3 times\n"
                                               "using different\n"
-                                              "paramters and tempos";
+                                              "parameters and tempos";
+
+const char tremolo_test_name[] PROGMEM =      "Tremolo test";
+const char tremolo_test_desc[] PROGMEM =      "Test tremolo at 3\n"
+                                              "different rates and\n"
+                                              "depth which should\n"
+                                              "not result in changes\n"
+                                              "to the peak volume";
+
+const char mod_slide_test_name[] PROGMEM =    "Mod slide test";
+const char mod_slide_test_desc[] PROGMEM =    "Slide mod up to 255 then\n"
+                                              "down to 0 and then \n"
+                                              "back to its center \n"
+                                              "value\n";
+                                     /* Ruler: 012345678901234567890 */
 
 struct test tests[] = {
   /* Tempo test: make sure tempo matches expected ticks/s and tempo defaults to 25 ticks/s */
@@ -173,6 +240,10 @@ struct test tests[] = {
   {volume_test_name, volume_test_desc, (const uint8_t*)&volume_test_sfx},
   /* Volume slide test: make sure volume volume slide effect behaves as expected */
   {volume_slide_test_name, volume_slide_test_desc, (const uint8_t*)&volume_slide_test_sfx},
+  /* Test tremolo period and amplitude changes keep peak volume at the expected value */
+  {tremolo_test_name, tremolo_test_desc, (const uint8_t*)&tremolo_test_sfx},
+  /* Listen to duty cycle modulation ;-) TODO: change to use LFO once supported */
+  {mod_slide_test_name, mod_slide_test_desc, (const uint8_t*)&mod_slide_test_sfx},
 };
 
 Arduboy2 arduboy;
