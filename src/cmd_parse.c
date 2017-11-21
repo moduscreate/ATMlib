@@ -181,6 +181,11 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 			}
 			break;
 #endif
+
+		case ATM_CMD_ID_LONG_DELAY:
+			ch->delay = csz > 1 ? (cmd->params[0]<<8)|cmd->params[1] : cmd->params[0];
+			ch->delay += 1;
+			break;
 	}
 }
 
