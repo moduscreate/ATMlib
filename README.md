@@ -243,7 +243,7 @@ Parametrised commands use the lower nibble to encode 16 command IDs and bits 6:4
 04 - Slide FX
 05 - LFO FX
 06 - Call
-07 - [reserved]
+07 - Long delay
 08 - Set transposition
 09 - Add transposition
 10 - Set tempo
@@ -399,6 +399,22 @@ P2
     Note  : Default to 0 when not present (play once)
 ```
 
+
+##### Long delay
+
+```
+Long Delay - delay any number of ticks between 1 and 65534
+
+Parameter count: 1
+
+P1
+    Size  : 1/2 bytes
+    Name  : Delay value
+    Range : [0:255] (u8) or [0:65533] (u16)
+    Note  : 1 <= delay <= 256 is enconded with one byte as (delay-1),
+            delay > 256 is encoded as an uint16_t as (delay-1) using
+            native CPU endiannes (i.e. high byte first)
+```
 
 ##### Set transposition
 
