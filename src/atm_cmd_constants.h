@@ -181,9 +181,9 @@ enum atm_parametrised_cmd_constants {
 #define ATM_CMD_M_SLIDE_FREQ_ADV_OFF ATM_CMD_P_SLIDE_ADV_OFF, 1
 #define ATM_CMD_M_SLIDE_MOD_ADV_OFF ATM_CMD_P_SLIDE_ADV_OFF, 2
 
-#define ATM_CMD_M_TREMOLO_ON(depth, rate) ATM_CMD_P_LFO_ON, 0, (uint8_t)(depth), (rate)
-#define ATM_CMD_M_VIBRATO_ON(depth, rate) ATM_CMD_P_LFO_ON, 1, (uint8_t)(depth), (rate)
-#define ATM_CMD_M_MOD_LFO_ON(depth, rate) ATM_CMD_P_LFO_ON, 2, (uint8_t)(depth), (rate)
+#define ATM_CMD_M_TREMOLO_ON(depth, rate) ATM_CMD_P_LFO_ON, 0, (depth), (rate-1)
+#define ATM_CMD_M_VIBRATO_ON(depth, rate) ATM_CMD_P_LFO_ON, 1, (depth), (rate-1)
+#define ATM_CMD_M_MOD_LFO_ON(depth, rate) ATM_CMD_P_LFO_ON, 2, (depth), (rate-1)
 
 #define ATM_CMD_M_TREMOLO_OFF ATM_CMD_P_LFO_OFF, 0
 #define ATM_CMD_M_VIBRATO_OFF ATM_CMD_P_LFO_OFF, 1
