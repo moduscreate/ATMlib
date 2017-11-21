@@ -173,9 +173,9 @@ enum atm_parametrised_cmd_constants {
 #define ATM_CMD_M_SLIDE_FREQ_OFF ATM_CMD_P_SLIDE_OFF, 1
 #define ATM_CMD_M_SLIDE_MOD_OFF ATM_CMD_P_SLIDE_OFF, 2
 
-#define ATM_CMD_M_SLIDE_VOL_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 0, (uint8_t)(p1), (p2)
-#define ATM_CMD_M_SLIDE_FREQ_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 1, (uint8_t)(p1), (p2)
-#define ATM_CMD_M_SLIDE_MOD_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 2, (uint8_t)(p1), (p2)
+#define ATM_CMD_M_SLIDE_VOL_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 0, (uint8_t)(p1), (p2-1)
+#define ATM_CMD_M_SLIDE_FREQ_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 1, (uint8_t)(p1), (p2-1)
+#define ATM_CMD_M_SLIDE_MOD_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 2, (uint8_t)(p1), (p2-1)
 
 #define ATM_CMD_M_SLIDE_VOL_ADV_OFF ATM_CMD_P_SLIDE_ADV_OFF, 0
 #define ATM_CMD_M_SLIDE_FREQ_ADV_OFF ATM_CMD_P_SLIDE_ADV_OFF, 1

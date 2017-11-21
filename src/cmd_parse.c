@@ -158,7 +158,7 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 			if (csz > 1) {
 				/* FX on */
 				ch->vf_slide.slide_count = cmd->params[0] << 6;
-				ch->vf_slide.slide_amount = cmd->params[1];
+				ch->vf_slide.slide_amount = (int8_t)cmd->params[1];
 				ch->vf_slide.slide_config = csz > 2 ? cmd->params[2] : 0;
 			} else {
 				/* FX off */
