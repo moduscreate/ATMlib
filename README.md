@@ -209,7 +209,7 @@ Commands are of two types: immediate when they have no extra parameters and para
 00nnnnnn : 1-63 note ON number, 0 note OFF (Immediate)
 010ddddd : Delay d+1 ticks (max 32 ticks) (Immediate)
 0110iiii : i = command ID (16 commands) (Immediate)
-0111---- : [reserved]
+0111kkkk : k = single byte parameter command ID (16 commands)
 1ssscccc : s+1 = parameters byte count (s=7 reserved), c = command ID (16 commands)
 1111---- : [reserved]
 ```
@@ -217,41 +217,45 @@ Commands are of two types: immediate when they have no extra parameters and para
 #### Immediate command IDs
 
 ```
-00 - Glissando/portamento OFF
-01 - Arpeggio OFF
-02 - Note Cut OFF
-03 - Noise re-trigger OFF
-04 - [reserved]
-05 - [reserved]
-06 - Return
+00 - Transpose OFF
+01 - Slide FX OFF
+02 - Return
+03 - Glissando/Portamento OFF
+04 - Arpeggio OFF/Note Cut OFF
+05 - Noise re-trigger OFF
+06 - LFO FX OFF
 07 - Stop (end pattern marker, stop playback on this channel)
-08 - Transpose OFF
-[09, 15] - [reserved]
+[08, 15] - [reserved]
 ```
 
-Immediate command 1-6 have the same least significant bits as the corresponding parametrised commands below to make the implementation more compact.
-
-#### Parametrised command IDs
-
-Parametrised commands use the lower nibble to encode 16 command IDs and bits 6:4 to encode the number of parameter bytes which follow the command starting at 0 i.e. a value of ```b10000000``` means parametrised command ID 0 followed by 1 parameter byte.
+#### Single byte command IDs
 
 ```
-00 - Glissando/portamento
-01 - Arpeggio
-02 - Note Cut
-03 - Noise re-trigger
-04 - Slide FX
-05 - LFO FX
-06 - Call
-07 - Long delay
-08 - Set transposition
-09 - Add transposition
-10 - Set tempo
-11 - Add tempo
-12 - Set Volume
-13 - Set square wave duty cycle
-14 - Setup pattern loop
-15 - [reserved]
+00 - Set transposition
+01 - Add transposition
+02 - Set tempo
+03 - Add tempo
+04 - Set Volume
+05 - Noise re-trigger
+06 - Set square wave duty cycle
+07 - [reserved]
+[08, 15] - [reserved]
+```
+
+#### N bytes command IDs
+
+N bytes commands use the lower nibble to encode 16 command IDs and bits 6:4 to encode the number of parameter bytes which follow the command starting at 0 i.e. a value of ```b10000000``` means parametrised command ID 0 followed by 1 parameter byte.
+
+```
+00 - Setup pattern loop
+01 - Slide FX
+02 - Call
+03 - Glissando/Portamento
+04 - Arpeggio/Note Cut
+05 - Long delay
+06 - LFO FX
+07 - [reserved]
+[08, 15] - [reserved]
 ```
 
 ##### Glissando
