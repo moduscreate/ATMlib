@@ -206,6 +206,12 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 			} else {
 				/* FX off */
 				ch->treviDepth = 0;
+				/* This effect does not reset volume, pitch or mod to the center
+				   value in case it is not interrupted on a period boundary.
+				   Fixing this costs ~ +30 bytes of code so I'm calling it a
+				   feature for the time being.
+				cmd_note(ch->note, ch);
+				*/
 			}
 			break;
 #endif
