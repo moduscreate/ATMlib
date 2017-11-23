@@ -8,8 +8,33 @@ static void cmd_note(const uint8_t note, struct atm_channel_state *ch)
 {
 	ch->note = note ? note + ch->trans_config : note;
 	ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->note);
-	ch->dst_osc_params->vol = note ? ch->vol : 0;
-	ch->dst_osc_params->mod = ch->mod;	
+	if (!note) {
+		ch->dst_osc_params->vol = 0;
+	} else if (!ch->vf_slide.slide_amount) {
+		/* No slide */
+		goto trigger_both;
+	} else if (ch->vf_slide.slide_config & 0x40) {
+		/* Slide is re-triggered */
+		ch->vf_slide.slide_count &= 0x3F;
+		goto trigger_both;
+	} else {
+		/* Slide is not re-triggered */
+		const uint8_t q = ch->vf_slide.slide_count & 0xC0;
+		if (!q == 0) {
+			/* Vol slide, don't trigger vol */
+			ch->dst_osc_params->mod = ch->mod;
+		} else if (q == 0x80) {
+			/* Mod slide, don't trigger mod */
+			ch->dst_osc_params->vol = ch->vol;
+		} else {
+			goto trigger_both;
+		}
+		return;
+	}
+
+trigger_both:
+	ch->dst_osc_params->vol = ch->vol;
+	ch->dst_osc_params->mod = ch->mod;
 }
 
 static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, struct atm_synth_state *score_state, struct atm_channel_state *ch)

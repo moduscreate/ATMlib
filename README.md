@@ -344,10 +344,10 @@ P2
 P3
     Size   : 1 byte
     Name   : Configuration
-    Note   : Defaults to 0 when not present (clamp, )
-    Format : bo-nnnnnn
+    Note   : Defaults to 0 when not present i.e. update every tick, clamp and keep fading
+    Format : bornnnnnn
               ||└└└└└└-> Ticks between update minus one
-              |└-------> [reserved]
+              |└-------> Retrigger flag 1: restart effect on note-on 0: keep sliding on note-on
               └--------> Overflow flag 1: let overflow, 0: clamp
 ```
 
