@@ -134,6 +134,45 @@ const PROGMEM struct volume_slide_test_sfx {
   },
 };
 
+const PROGMEM struct frequency_slide_test_sfx {
+  uint8_t fmt;
+  uint8_t pattern0[45];
+} frequency_slide_test_sfx = {
+  .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
+  .pattern0 = {
+    ATM_CMD_M_SET_TEMPO(32),
+    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_I_NOTE_F5,
+    /* sustain the note at volume 32 to create a baseline */
+    ATM_CMD_M_DELAY_TICKS(16),
+    ATM_CMD_M_SLIDE_FREQ_ON(10),
+    ATM_CMD_M_DELAY_TICKS(32),
+    /* volume should be now 64 */
+    ATM_CMD_M_SLIDE_FREQ_ON(-10),
+    ATM_CMD_M_DELAY_TICKS(32),
+    /* volume should be now 32 */
+    ATM_CMD_M_SET_TEMPO(128),
+    ATM_CMD_M_SLIDE_FREQ_ADV_ON(10, 4),
+    ATM_CMD_M_DELAY_TICKS_1(128),
+    /* volume should be now 64 */
+    ATM_CMD_M_SLIDE_FREQ_ADV_ON(-10, 4),
+    ATM_CMD_M_DELAY_TICKS_1(128),
+    /* volume should be now 32 */
+    ATM_CMD_M_SET_TEMPO(32),
+    ATM_CMD_M_SLIDE_FREQ_ADV_ON(40, 4),
+    ATM_CMD_M_DELAY_TICKS(32),
+    /* volume should be now 64 */
+    ATM_CMD_M_SLIDE_FREQ_ADV_ON(-40, 4),
+    ATM_CMD_M_DELAY_TICKS(32),
+    /* volume should be now 32 */
+    ATM_CMD_M_SLIDE_FREQ_ADV_OFF,
+    /* sustain the note at volume 32 to create a baseline */
+    ATM_CMD_M_DELAY_TICKS(16),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_STOP,
+  },
+};
+
 const PROGMEM struct tremolo_test_sfx {
   uint8_t fmt;
   uint8_t pattern0[45];
@@ -152,6 +191,32 @@ const PROGMEM struct tremolo_test_sfx {
     ATM_CMD_M_TREMOLO_ON(4, 8),
     ATM_CMD_M_DELAY_TICKS_1(64),
     ATM_CMD_M_TREMOLO_OFF,
+    /* sustain the note at volume 32 to create a baseline */
+    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_M_DELAY_TICKS(16),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_STOP,
+  },
+};
+
+const PROGMEM struct vibrato_test_sfx {
+  uint8_t fmt;
+  uint8_t pattern0[45];
+} vibrato_test_sfx = {
+  .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
+  .pattern0 = {
+    ATM_CMD_M_SET_TEMPO(32),
+    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_I_NOTE_F5,
+    /* sustain the note at volume 32 to create a baseline */
+    ATM_CMD_M_DELAY_TICKS(16),
+    ATM_CMD_M_VIBRATO_ON(8, 4),
+    ATM_CMD_M_DELAY_TICKS_1(64),
+    ATM_CMD_M_VIBRATO_ON(16, 2),
+    ATM_CMD_M_DELAY_TICKS_1(64),
+    ATM_CMD_M_VIBRATO_ON(4, 8),
+    ATM_CMD_M_DELAY_TICKS_1(64),
+    ATM_CMD_M_VIBRATO_OFF,
     /* sustain the note at volume 32 to create a baseline */
     ATM_CMD_M_SET_VOLUME(32),
     ATM_CMD_M_DELAY_TICKS(16),
@@ -217,12 +282,24 @@ const char volume_slide_test_desc[] PROGMEM = "Slide volume up in 1\n"
                                               "using different\n"
                                               "parameters and tempos";
 
+const char frequency_slide_test_name[] PROGMEM = "Frequency slide test";
+const char frequency_slide_test_desc[] PROGMEM = "Slide frequency up in 1\n"
+                                              "second then down in 1\n"
+                                              "second for 3 times\n"
+                                              "using different\n"
+                                              "parameters and tempos";
+
 const char tremolo_test_name[] PROGMEM =      "Tremolo test";
 const char tremolo_test_desc[] PROGMEM =      "Test tremolo at 3\n"
                                               "different rates and\n"
                                               "depth which should\n"
                                               "not result in changes\n"
                                               "to the peak volume";
+
+const char vibrato_test_name[] PROGMEM =      "Vibrato test";
+const char vibrato_test_desc[] PROGMEM =      "Test vibrato at 3\n"
+                                              "different rates and\n"
+                                              "depth\n";
 
 const char mod_slide_test_name[] PROGMEM =    "Mod slide test";
 const char mod_slide_test_desc[] PROGMEM =    "Slide mod up to 255 then\n"
@@ -240,8 +317,12 @@ struct test tests[] = {
   {volume_test_name, volume_test_desc, (const uint8_t*)&volume_test_sfx},
   /* Volume slide test: make sure volume volume slide effect behaves as expected */
   {volume_slide_test_name, volume_slide_test_desc, (const uint8_t*)&volume_slide_test_sfx},
+  /* Frequency slide test: make sure frequency volume slide effect behaves as expected */
+  {frequency_slide_test_name, frequency_slide_test_desc, (const uint8_t*)&frequency_slide_test_sfx},
   /* Test tremolo period and amplitude changes keep peak volume at the expected value */
   {tremolo_test_name, tremolo_test_desc, (const uint8_t*)&tremolo_test_sfx},
+  /* Listen to vibrato */
+  {vibrato_test_name, vibrato_test_desc, (const uint8_t*)&vibrato_test_sfx},
   /* Listen to duty cycle modulation ;-) TODO: change to use LFO once supported */
   {mod_slide_test_name, mod_slide_test_desc, (const uint8_t*)&mod_slide_test_sfx},
 };

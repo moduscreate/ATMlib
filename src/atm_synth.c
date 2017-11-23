@@ -55,9 +55,9 @@ static void fetch_cmd(const uint8_t ch_index, struct atm_channel_state *ch, stru
 	ch->pstack[ch->pstack_index].next_cmd_ptr += csz;
 }
 
-#if ATM_HAS_FX_GLISSANDO || ATM_HAS_FX_SLIDE
+#if ATM_HAS_FX_GLISSANDO || ATM_HAS_FX_SLIDE || ATM_HAS_FX_LFO
 
-/* flags: bit 7 = 0 clamp, 1 wraparound */
+/* flags: bit 7 = 0 clamp, 1 overflow */
 static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
 {
 	const bool clamp = !(flags & 0x80);
@@ -74,44 +74,29 @@ static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int
 
 #endif
 
-#if ATM_HAS_FX_SLIDE
+#if ATM_HAS_FX_SLIDE || ATM_HAS_FX_LFO
+static void addto_osc_param(const int8_t amount, const uint8_t param, struct osc_params *osc_params, const uint8_t flags)
+{
+	switch (param & 0xC0) {
+		case 0:
+			osc_params->vol = slide_quantity(amount, osc_params->vol, 0, MAX_VOLUME, flags);
+			break;
+		case 0x40:
+			osc_params->phase_increment = slide_quantity(amount, osc_params->phase_increment, 0, OSC_PHASE_INC_MAX, flags);
+			break;
+		case 0x80:
+			osc_params->mod = slide_quantity(amount, osc_params->mod, 0, OSC_MOD_MAX, flags);
+			break;
+	}
+}
+#endif
 
+#if ATM_HAS_FX_SLIDE
 static void slidefx(struct atm_slide_params *slide_params, struct osc_params *osc_params)
 {
 	if (slide_params->slide_amount) {
 		if ((slide_params->slide_count & 0x3F) >= (slide_params->slide_config & 0x3F)) {
-			switch (slide_params->slide_count & 0xC0) {
-#if ATM_HAS_FX_VOL_SLIDE
-				case 0:
-					osc_params->vol = slide_quantity(
-											slide_params->slide_amount,
-											osc_params->vol,
-											0,
-											MAX_VOLUME,
-											slide_params->slide_config & 0x80);
-					break;
-#endif
-#if ATM_HAS_FX_FREQ_SLIDE
-				case 0x40:
-					osc_params->phase_increment = slide_quantity(
-													slide_params->slide_amount,
-													osc_params->phase_increment,
-													0,
-													OSC_PHASE_INC_MAX,
-													slide_params->slide_config & 0x80);
-					break;
-#endif
-#if ATM_HAS_FX_MOD_SLIDE
-				case 0x80:
-					osc_params->mod = slide_quantity(
-													slide_params->slide_amount,
-													osc_params->mod,
-													0,
-													OSC_MOD_MAX,
-													slide_params->slide_config & 0x80);
-					break;
-#endif
-			}
+			addto_osc_param(slide_params->slide_amount, slide_params->slide_count & 0xC0, osc_params, slide_params->slide_config & 0x80);
 			slide_params->slide_count &= 0xC0;
 		} else {
 			slide_params->slide_count++;
@@ -348,24 +333,8 @@ static void process_fx(const uint8_t ch_index, struct atm_synth_state *score_sta
 #if ATM_HAS_FX_LFO
 	// Apply Tremolo or Vibrato
 	if (ch->treviDepth) {
-		int16_t vt = ((ch->treviConfig & 0x40) ? ch->dst_osc_params->phase_increment : ch->dst_osc_params->vol);
-		vt = (ch->treviCount & 0x80) ? (vt + ch->treviDepth) : (vt - ch->treviDepth);
-		if (vt < 0) {
-			vt = 0;
-		} else if (ch->treviConfig & 0x40) {
-			if (vt > OSC_PHASE_INC_MAX) {
-				vt = OSC_PHASE_INC_MAX;
-			}
-		} else if (!(ch->treviConfig & 0x40)) {
-			if (vt > MAX_VOLUME) {
-				vt = MAX_VOLUME;
-			}
-		}
-		if (ch->treviConfig & 0x40) {
-			ch->dst_osc_params->phase_increment = vt;
-		} else {
-			ch->dst_osc_params->vol = vt;
-		}
+		const int8_t amount = ch->treviCount & 0x80 ? ch->treviDepth : -ch->treviDepth;
+		addto_osc_param(amount, ch->treviConfig & 0xC0, ch->dst_osc_params, 0);
 		if ((ch->treviCount & 0x1F) < (ch->treviConfig & 0x1F)) {
 			ch->treviCount++;
 		} else {

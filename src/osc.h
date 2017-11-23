@@ -12,7 +12,7 @@
 OSC period is 2**16 so Nyquist corresponds to 2**16/2. Note that's way too high
 for square waves to sound OK.
 */
-#define OSC_PHASE_INC_MAX (2^16/2)
+#define OSC_PHASE_INC_MAX (0x3FFF)
 #define OSC_TICK_CALLBACK_COUNT (2)
 
 enum osc_channels_e {
