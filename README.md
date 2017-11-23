@@ -112,7 +112,7 @@ const PROGMEM struct sfx_data {
     .pattern0 = {
         /* Use default tempo */
         /* Volume must be set because it defaults to 0 */
-        ATM_CMD_M_SET_VOLUME(32),
+        ATM_CMD_M_SET_VOLUME(31),
         ATM_CMD_I_NOTE_C4,
         ATM_CMD_M_DELAY_TICKS(25),
         ATM_CMD_I_STOP,
@@ -479,8 +479,9 @@ Parameter count: 1
 P1
     Size  : 1 byte
     Name  : Volume
-    Range : [0:63] (u8) for channels 0,1,2 and [0,31] for channel 3 (noise)
-    Note  : The range can be exceeded to cause distortion intentionally
+    Range : [0:127] (u8) to avoid clipping only values [0:31] should be used
+    Note  : Clipping will occur when the sum of the volume over all channels
+            exceeds 127.
 ```
 
 ##### Set square wave duty cycle
