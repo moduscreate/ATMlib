@@ -199,7 +199,10 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 				/* FX on */
 				ch->treviDepth = cmd->params[1];
 				ch->treviConfig = cmd->params[2] | (cmd->params[0] << 6);
-				ch->treviCount = 0;
+				/* Effect starts from center point so it must run for 1/4 period
+				   before changing sign. params[2] carries half period so div by 2
+				*/
+				ch->treviCount = (cmd->params[2] & 0x1F) >> 1;
 			} else {
 				/* FX off */
 				ch->treviDepth = 0;
