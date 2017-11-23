@@ -369,7 +369,7 @@ P1
 P2
     Size   : 1 byte
     Name   : LFO depth
-    Format : bcddddddd
+    Format : b-ddddddd
               |└└└└└└└-> Oscillator parameter delta per tick
               └--------> [reserved]
 
@@ -481,9 +481,9 @@ Parameter count: 1
 P1
     Size  : 1 byte
     Name  : Volume
-    Range : [0:127] (u8) to avoid clipping only values [0:31] should be used
-    Note  : Clipping will occur when the sum of the volume over all channels
-            exceeds 127.
+    Format : b-ddddddd
+              |└└└└└└└-> Volume [0:127]
+              └--------> [reserved]
 ```
 
 ##### Set square wave duty cycle

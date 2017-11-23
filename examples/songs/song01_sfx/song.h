@@ -65,11 +65,11 @@ DEFINE_PATTERN(pattern4_array, pattern4_data);
 /* Pattern 5 ticks = 64 / bytes = 14 */
 #define pattern5_data { \
     ATM_CMD_I_NOTE_B5, \
-    ATM_CMD_M_SET_VOLUME(63), \
-    ATM_CMD_M_SLIDE_VOL_ON(-16), \
+    ATM_CMD_M_SET_VOLUME(127), \
+    ATM_CMD_M_SLIDE_VOL_ON(-32), \
     ATM_CMD_M_DELAY_TICKS(16), \
-    ATM_CMD_M_SET_VOLUME(16), \
-    ATM_CMD_M_SLIDE_VOL_ON(-4), \
+    ATM_CMD_M_SET_VOLUME(32), \
+    ATM_CMD_M_SLIDE_VOL_ON(-8), \
     ATM_CMD_M_DELAY_TICKS(4), \
     ATM_CMD_M_SLIDE_VOL_OFF, \
     ATM_CMD_M_DELAY_TICKS(20), \
@@ -81,9 +81,10 @@ DEFINE_PATTERN(pattern5_array, pattern5_data);
 /* Pattern 6 ticks = 64 / bytes = 10 */
 #define pattern6_data { \
     ATM_CMD_I_NOTE_B2, \
-    ATM_CMD_M_SET_VOLUME(32), \
-    ATM_CMD_M_TREMOLO_ON(1, 30), \
+    ATM_CMD_M_SET_VOLUME(64), \
+    ATM_CMD_M_SLIDE_VOL_ON(-2), \
     ATM_CMD_M_DELAY_TICKS(32), \
+    ATM_CMD_M_SLIDE_VOL_ON(2), \
     ATM_CMD_M_DELAY_TICKS(31), \
     ATM_CMD_M_TREMOLO_OFF, \
     ATM_CMD_M_DELAY_TICKS(3), \
@@ -93,18 +94,18 @@ DEFINE_PATTERN(pattern6_array, pattern6_data);
 
 /* Pattern 7 ticks = 64 / bytes = 20 */
 #define pattern7_data { \
-    ATM_CMD_M_SET_VOLUME(32), \
+    ATM_CMD_M_SET_VOLUME(64), \
     ATM_CMD_M_DELAY_TICKS(2), \
     ATM_CMD_M_SET_VOLUME(0), \
     ATM_CMD_M_DELAY_TICKS(16), \
 \
-    ATM_CMD_M_SET_VOLUME(32), \
+    ATM_CMD_M_SET_VOLUME(64), \
     ATM_CMD_M_DELAY_TICKS(2), \
     ATM_CMD_M_SET_VOLUME(0), \
     ATM_CMD_M_DELAY_TICKS(16), \
 \
-    ATM_CMD_M_SET_VOLUME(32), \
-    ATM_CMD_M_SLIDE_VOL_ON(-2), \
+    ATM_CMD_M_SET_VOLUME(64), \
+    ATM_CMD_M_SLIDE_VOL_ON(-4), \
     ATM_CMD_M_DELAY_TICKS(17), \
     ATM_CMD_M_SLIDE_VOL_OFF, \
     ATM_CMD_M_DELAY_TICKS(17), \
@@ -163,7 +164,7 @@ const PROGMEM struct sfx1_data {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(22),
-    ATM_CMD_M_SET_VOLUME(63),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_I_NOTE_F5,
     ATM_CMD_M_DELAY_TICKS(11),
     ATM_CMD_I_NOTE_OFF,

@@ -23,9 +23,11 @@ struct callback_info osc_cb[OSC_TICK_CALLBACK_COUNT];
 void osc_setup(void)
 {
 	osc_reset();
+	PLLFRQ = 0b01101010;    // PINMUX:16MHz XTAL, PLLUSB:48MHz, PLLTM:1.5, PDIV:96MHz
 	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
 	TCCR4B = 0b00000001;    // currently 31250Hz
-	OCR4C  = 0xFF;          // Resolution to 8-bit (TOP=0xFF)
+	TC4H   = 0x03;
+	OCR4C  = 0xFF;          // Resolution to 10-bit (TOP=0x3FF)
 }
 
 static void osc_reset(void)
@@ -46,16 +48,16 @@ static void osc_reset(void)
 
 static void osc_setactive(const uint8_t active_flag)
 {
-	TIMSK4 = active_flag ? 0b00000100 : 0b00000000;
-	OCR4A  = OSC_DC_OFFSET;
+	if (active_flag) {
+		TC4H   = 0x02;
+		OCR4A  = 0;
+		TIMSK4 = 0b00000100;
+	} else {
+		TIMSK4 = 0b00000000;
+		TC4H   = 0x02;
+		OCR4A  = 0;
+	}
 }
-
-#if 0
-void osc_toggleactive(void)
-{
-	TIMSK4 = TIMSK4 ^ 0b00000100; /* toggle disable/enable interrupt */
-}
-#endif
 
 void osc_set_tick_rate(const uint8_t callback_idx, const uint16_t rate_hz)
 {
@@ -132,76 +134,102 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	push r26                                                       " ASM_EOL
 "	push r0                                                        " ASM_EOL
 "	push r1                                                        " ASM_EOL
-"; OSC 2 advance phase accumulator                                 " ASM_EOL
-"	lds  r18,                   osc_params_array+2*%[osz]+%[phi]   " ASM_EOL
-"	lds  r0,                    osc_pha_acc_array+2*%[asz]         " ASM_EOL
-"	add  r0,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+2*%[asz],          r0                   " ASM_EOL
-"	lds  r18,                   osc_params_array+2*%[osz]+%[phi]+1 " ASM_EOL
-"	lds  r1,                    osc_pha_acc_array+2*%[asz]+1       " ASM_EOL
-"	adc  r1,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+2*%[asz]+1,        r1                   " ASM_EOL
-"; OSC 2 square waveform                                           " ASM_EOL
-"	lds  r27,                   osc_params_array+2*%[osz]+%[mod]   " ASM_EOL
-"	cp   r1,                    r27                                " ASM_EOL
-"	lds  r26,                   osc_params_array+2*%[osz]+%[vol]   " ASM_EOL
-"	brcs 1f                                                        " ASM_EOL
-"	neg  r26                                                       " ASM_EOL
+
+"; Setup DC offset                                                 " ASM_EOL
+"	ldi  r26 ,0x00                                                 " ASM_EOL
+"	ldi  r27 ,0x02                                                 " ASM_EOL
+
+"; OSC 3 noise generator                                           " ASM_EOL
+"	ldi  r18,                   1                                  " ASM_EOL
+"	lds  r0,                    osc_params_array+3*%[osz]+%[phi]   " ASM_EOL
+"	lds  r1,                    osc_params_array+3*%[osz]+%[phi]+1 " ASM_EOL
+"	add  r0,                    r0                                 " ASM_EOL
+"	adc  r1,                    r1                                 " ASM_EOL
+"	sbrc r1,                    7                                  " ASM_EOL
+"	eor  r0,                    r18                                " ASM_EOL
+"	sbrc r1,                    6                                  " ASM_EOL
+"	eor  r0,                    r18                                " ASM_EOL
+"	sts  osc_params_array+3*%[osz]+%[phi],   r0                    " ASM_EOL
+"	sts  osc_params_array+3*%[osz]+%[phi]+1, r1                    " ASM_EOL
+"; OSC 3 continued                                                 " ASM_EOL
+"	clr  r18                                                       " ASM_EOL
+"	lds  r0,                    osc_params_array+3*%[osz]+%[vol]   " ASM_EOL
+"	neg  r1                                                        " ASM_EOL
+"	brpl 1f                                                        " ASM_EOL
+"	com  r18                                                       " ASM_EOL
+"	neg  r0                                                        " ASM_EOL
+"	sbci r18,-1                                                    " ASM_EOL
 "1:                                                                " ASM_EOL
+"	add  r26,                   r0                                 " ASM_EOL
+"	adc  r27,                   r18                                " ASM_EOL
+
 "; OSC 0 advance phase accumulator                                 " ASM_EOL
 "	lds  r18,                   osc_params_array+0*%[osz]+%[phi]   " ASM_EOL
 "	lds  r0,                    osc_pha_acc_array+0*%[asz]         " ASM_EOL
 "	add  r0,                    r18                                " ASM_EOL
 "	sts  osc_pha_acc_array+0*%[asz],          r0                   " ASM_EOL
 "	lds  r18,                   osc_params_array+0*%[osz]+%[phi]+1 " ASM_EOL
-"	lds  r1,                    osc_pha_acc_array+0*%[asz]+1       " ASM_EOL
-"	adc  r1,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+0*%[asz]+1,        r1                   " ASM_EOL
+"	lds  r0,                    osc_pha_acc_array+0*%[asz]+1       " ASM_EOL
+"	adc  r0,                    r18                                " ASM_EOL
+"	sts  osc_pha_acc_array+0*%[asz]+1,        r0                   " ASM_EOL
 "; OSC 0 square waveform                                           " ASM_EOL
-"	lds  r27,                   osc_params_array+0*%[osz]+%[mod]   " ASM_EOL
-"	cp   r1,                    r27                                " ASM_EOL
-"	lds  r27,                   osc_params_array+0*%[osz]+%[vol]   " ASM_EOL
+"	lds  r1,                    osc_params_array+0*%[osz]+%[mod]   " ASM_EOL
+"	clr  r18                                                       " ASM_EOL
+"	cp   r0,                    r1                                 " ASM_EOL
+"	lds  r1,                    osc_params_array+0*%[osz]+%[vol]   " ASM_EOL
 "	brcs 1f                                                        " ASM_EOL
-"	neg  r27                                                       " ASM_EOL
+"	com  r18                                                       " ASM_EOL
+"	neg  r1                                                        " ASM_EOL
+"	sbci r18,-1                                                    " ASM_EOL
 "1:                                                                " ASM_EOL
-"	add  r26,                   r27                                " ASM_EOL
+"	add  r26,                   r1                                 " ASM_EOL
+"	adc  r27,                   r18                                " ASM_EOL
+
 "; OSC 1 advance phase accumulator                                 " ASM_EOL
 "	lds  r18,                   osc_params_array+1*%[osz]+%[phi]   " ASM_EOL
 "	lds  r0,                    osc_pha_acc_array+1*%[asz]         " ASM_EOL
 "	add  r0,                    r18                                " ASM_EOL
 "	sts  osc_pha_acc_array+1*%[asz],          r0                   " ASM_EOL
 "	lds  r18,                   osc_params_array+1*%[osz]+%[phi]+1 " ASM_EOL
-"	lds  r1,                    osc_pha_acc_array+1*%[asz]+1       " ASM_EOL
-"	adc  r1,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+1*%[asz]+1,        r1                   " ASM_EOL
+"	lds  r0,                    osc_pha_acc_array+1*%[asz]+1       " ASM_EOL
+"	adc  r0,                    r18                                " ASM_EOL
+"	sts  osc_pha_acc_array+1*%[asz]+1,        r0                   " ASM_EOL
 "; OSC 1 square waveform                                           " ASM_EOL
-"	lds  r27,                   osc_params_array+1*%[osz]+%[mod]   " ASM_EOL
-"	cp   r1,                    r27                                " ASM_EOL
-"	lds  r27,                   osc_params_array+1*%[osz]+%[vol]   " ASM_EOL
+"	lds  r1,                    osc_params_array+1*%[osz]+%[mod]   " ASM_EOL
+"	clr  r18                                                       " ASM_EOL
+"	cp   r0,                    r1                                 " ASM_EOL
+"	lds  r1,                    osc_params_array+1*%[osz]+%[vol]   " ASM_EOL
 "	brcs 1f                                                        " ASM_EOL
-"	neg  r27                                                       " ASM_EOL
+"	com  r18                                                       " ASM_EOL
+"	neg  r1                                                        " ASM_EOL
+"	sbci r18,-1                                                    " ASM_EOL
 "1:                                                                " ASM_EOL
-"	add  r26,                   r27                                " ASM_EOL
-"; OSC 3 noise generator                                           " ASM_EOL
-"	ldi  r27,                   1                                  " ASM_EOL
-"	lds  r0,                    osc_params_array+3*%[osz]+%[phi]   " ASM_EOL
-"	lds  r1,                    osc_params_array+3*%[osz]+%[phi]+1 " ASM_EOL
-"	add  r0,                    r0                                 " ASM_EOL
-"	adc  r1,                    r1                                 " ASM_EOL
-"	sbrc r1,                    7                                  " ASM_EOL
-"	eor  r0,                    r27                                " ASM_EOL
-"	sbrc r1,                    6                                  " ASM_EOL
-"	eor  r0,                    r27                                " ASM_EOL
-"	sts  osc_params_array+3*%[osz]+%[phi],   r0                    " ASM_EOL
-"	sts  osc_params_array+3*%[osz]+%[phi]+1, r1                    " ASM_EOL
-"; OSC 3 continued                                                 " ASM_EOL
-"	lds  r27,                   osc_params_array+3*%[osz]+%[vol]   " ASM_EOL
-"	sbrc r1,                    7                                  " ASM_EOL
-"	neg  r27                                                       " ASM_EOL
-"	add  r26,                   r27                                " ASM_EOL
-"; add DC offset                                                   " ASM_EOL
-"	ldi  r27,                   %[dc]                              " ASM_EOL
-"	add  r26,                   r27                                " ASM_EOL
+"	add  r26,                   r1                                 " ASM_EOL
+"	adc  r27,                   r18                                " ASM_EOL
+
+"; OSC 2 advance phase accumulator                                 " ASM_EOL
+"	lds  r18,                   osc_params_array+2*%[osz]+%[phi]   " ASM_EOL
+"	lds  r0,                    osc_pha_acc_array+2*%[asz]         " ASM_EOL
+"	add  r0,                    r18                                " ASM_EOL
+"	sts  osc_pha_acc_array+2*%[asz],          r0                   " ASM_EOL
+"	lds  r18,                   osc_params_array+2*%[osz]+%[phi]+1 " ASM_EOL
+"	lds  r0,                    osc_pha_acc_array+2*%[asz]+1       " ASM_EOL
+"	adc  r0,                    r18                                " ASM_EOL
+"	sts  osc_pha_acc_array+2*%[asz]+1,        r0                   " ASM_EOL
+"; OSC 2 square waveform                                           " ASM_EOL
+"	lds  r1,                    osc_params_array+2*%[osz]+%[mod]   " ASM_EOL
+"	clr  r18                                                       " ASM_EOL
+"	cp   r0,                    r1                                 " ASM_EOL
+"	lds  r1,                    osc_params_array+2*%[osz]+%[vol]   " ASM_EOL
+"	brcs 1f                                                        " ASM_EOL
+"	com  r18                                                       " ASM_EOL
+"	neg  r1                                                        " ASM_EOL
+"	sbci r18,-1                                                    " ASM_EOL
+"1:                                                                " ASM_EOL
+"	add  r26,                   r1                                 " ASM_EOL
+"	adc  r27,                   r18                                " ASM_EOL
+
+"	sts  %[regh],               r27                                " ASM_EOL
 "	sts  %[reg],                r26                                " ASM_EOL
 "; tick handler prescaler                                          " ASM_EOL
 "	lds  r18,                   osc_int_count                      " ASM_EOL
@@ -276,8 +304,8 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	reti                                                           " ASM_EOL
 	::
 	[reg] "M" _SFR_MEM_ADDR(OCR4A),
+	[regh] "M" _SFR_MEM_ADDR(TC4H),
 	[div] "M" (OSC_ISR_PRESCALER_DIV*2),
-	[dc]  "M" OSC_DC_OFFSET,
 	[osz] "M" (sizeof(struct osc_params)),
 	[asz] "M" (sizeof(uint16_t)),
 	[csz] "M" (sizeof(struct callback_info)),

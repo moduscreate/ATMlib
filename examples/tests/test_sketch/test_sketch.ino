@@ -12,7 +12,7 @@ const PROGMEM struct tempo_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     /* don't set tempo, expect it to be 25 tick/s by default */
-    ATM_CMD_M_SET_VOLUME(63),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_I_NOTE_F5,
     ATM_CMD_M_DELAY_TICKS(25),
     ATM_CMD_I_NOTE_OFF,
@@ -43,7 +43,7 @@ const PROGMEM struct delay_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(16),
-    ATM_CMD_M_SET_VOLUME(63),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_I_NOTE_F5,
     ATM_CMD_M_DELAY_TICKS(32),
     ATM_CMD_I_NOTE_OFF,
@@ -77,10 +77,8 @@ const PROGMEM struct volume_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     /* don't set tempo, expect it to be 25 tick/s by default */
-    ATM_CMD_M_SET_VOLUME(2),
-    ATM_CMD_I_NOTE_F5,
-    ATM_CMD_M_DELAY_TICKS(25),
     ATM_CMD_M_SET_VOLUME(4),
+    ATM_CMD_I_NOTE_F5,
     ATM_CMD_M_DELAY_TICKS(25),
     ATM_CMD_M_SET_VOLUME(8),
     ATM_CMD_M_DELAY_TICKS(25),
@@ -89,6 +87,8 @@ const PROGMEM struct volume_test_sfx {
     ATM_CMD_M_SET_VOLUME(32),
     ATM_CMD_M_DELAY_TICKS(25),
     ATM_CMD_M_SET_VOLUME(64),
+    ATM_CMD_M_DELAY_TICKS(25),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_M_DELAY_TICKS(25),
     ATM_CMD_I_NOTE_OFF,
     ATM_CMD_I_STOP,
@@ -102,7 +102,7 @@ const PROGMEM struct volume_slide_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(32),
-    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_M_SET_VOLUME(63),
     ATM_CMD_I_NOTE_F5,
     /* sustain the note at volume 32 to create a baseline */
     ATM_CMD_M_DELAY_TICKS(16),
@@ -141,7 +141,7 @@ const PROGMEM struct frequency_slide_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(32),
-    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_I_NOTE_F5,
     /* sustain the note at volume 32 to create a baseline */
     ATM_CMD_M_DELAY_TICKS(16),
@@ -180,15 +180,15 @@ const PROGMEM struct tremolo_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(32),
-    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_I_NOTE_F5,
     /* sustain the note at volume 32 to create a baseline */
     ATM_CMD_M_DELAY_TICKS(16),
-    ATM_CMD_M_TREMOLO_ON(8, 4),
+    ATM_CMD_M_TREMOLO_ON(32, 4),
     ATM_CMD_M_DELAY_TICKS_1(64),
-    ATM_CMD_M_TREMOLO_ON(16, 2),
+    ATM_CMD_M_TREMOLO_ON(64, 2),
     ATM_CMD_M_DELAY_TICKS_1(64),
-    ATM_CMD_M_TREMOLO_ON(4, 8),
+    ATM_CMD_M_TREMOLO_ON(16, 8),
     ATM_CMD_M_DELAY_TICKS_1(64),
     ATM_CMD_M_TREMOLO_OFF,
     /* sustain the note at volume 32 to create a baseline */
@@ -206,7 +206,7 @@ const PROGMEM struct vibrato_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(32),
-    ATM_CMD_M_SET_VOLUME(32),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_I_NOTE_F5,
     /* sustain the note at volume 32 to create a baseline */
     ATM_CMD_M_DELAY_TICKS(16),
@@ -232,7 +232,7 @@ const PROGMEM struct mod_slide_test_sfx {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(128),
-    ATM_CMD_M_SET_VOLUME(64),
+    ATM_CMD_M_SET_VOLUME(127),
     ATM_CMD_M_SET_MOD(127),
     ATM_CMD_I_NOTE_C4,
     ATM_CMD_M_DELAY_TICKS(32),

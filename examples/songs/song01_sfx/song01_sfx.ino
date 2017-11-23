@@ -40,7 +40,7 @@ void loop() {
   sprites.drawSelfMasked(34, 4, T_arg, 0);
 
   if (arduboy.justPressed(B_BUTTON)) {
-    atm_synth_play_sfx_track(OSC_CH_ONE, (const uint8_t*)&sfx1, &sfx_state);
+    atm_synth_play_sfx_track(OSC_CH_TWO, (const uint8_t*)&sfx1, &sfx_state);
   }
 
   if (arduboy.justPressed(A_BUTTON)) {
