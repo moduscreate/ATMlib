@@ -369,7 +369,9 @@ P1
 P2
     Size   : 1 byte
     Name   : LFO depth
-    Range  : [0:255] (u8)
+    Format : bcddddddd
+              |└└└└└└└-> Oscillator parameter delta per tick
+              └--------> [reserved]
 
 P3
     Size   : 1 byte
