@@ -4,6 +4,12 @@
 #include <avr/interrupt.h>
 #include "osc.h"
 
+#define OSC_TIMER_BITS (10)
+#define OSC_DC_OFFSET (1<<(OSC_TIMER_BITS-1))
+#define OSC_PWM_TOP ((1<<(OSC_TIMER_BITS))-1)
+#define OSC_HI(v) ((v)>>8)
+#define OSC_LO(v) ((v)&0xFF)
+
 static void osc_reset(void);
 static void osc_setactive(const uint8_t active_flag);
 
@@ -26,8 +32,10 @@ void osc_setup(void)
 	PLLFRQ = 0b01101010;    // PINMUX:16MHz XTAL, PLLUSB:48MHz, PLLTM:1.5, PDIV:96MHz
 	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
 	TCCR4B = 0b00000001;    // currently 31250Hz
-	TC4H   = 0x03;
-	OCR4C  = 0xFF;          // Resolution to 10-bit (TOP=0x3FF)
+	TCCR4D = 0b00000001;
+	TCCR4E = 0b00000000;
+	TC4H   = OSC_HI(OSC_PWM_TOP);
+	OCR4C  = OSC_LO(OSC_PWM_TOP); // Resolution to 10-bit (TOP=0x3FF)
 }
 
 static void osc_reset(void)
@@ -49,13 +57,13 @@ static void osc_reset(void)
 static void osc_setactive(const uint8_t active_flag)
 {
 	if (active_flag) {
-		TC4H   = 0x02;
-		OCR4A  = 0;
+		TC4H   = OSC_HI(OSC_DC_OFFSET);
+		OCR4A  = OSC_LO(OSC_DC_OFFSET);
 		TIMSK4 = 0b00000100;
 	} else {
 		TIMSK4 = 0b00000000;
-		TC4H   = 0x02;
-		OCR4A  = 0;
+		TC4H   = OSC_HI(OSC_DC_OFFSET);
+		OCR4A  = OSC_LO(OSC_DC_OFFSET);
 	}
 }
 
