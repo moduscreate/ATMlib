@@ -55,8 +55,8 @@ void osc_setup(void)
 	OCR4C  = OSC_LO(OSC_PWM_TOP); // Use 9-bits for counting (TOP=0x1FF)
 
 	TCCR3A = 0b00000000;
-	TCCR3B = 0b00001100;    // Mode CTC, clock source 16MHz/256 = 62500Hz
-	OCR3A  = 0x0003;        // 62500Hz/4 = 15625Hz
+	TCCR3B = 0b00001001;    // Mode CTC, clock source 16MHz
+	OCR3A  = (16E6/OSC_SAMPLERATE)-1; // 16MHz/1k = 16kHz
 }
 
 static void osc_reset(void)
