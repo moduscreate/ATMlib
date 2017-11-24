@@ -134,10 +134,10 @@ const PROGMEM struct volume_slide_test_sfx {
   },
 };
 
-const PROGMEM struct frequency_slide_test_sfx {
+const PROGMEM struct freq_slide_test_sfx {
   uint8_t fmt;
   uint8_t pattern0[45];
-} frequency_slide_test_sfx = {
+} freq_slide_test_sfx = {
   .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
   .pattern0 = {
     ATM_CMD_M_SET_TEMPO(32),
@@ -272,7 +272,7 @@ const char delay_test_desc[] PROGMEM =        "5 two seconds tones \n"
 const char volume_test_name[] PROGMEM =       "Volume test";
 const char volume_test_desc[] PROGMEM =       "1 tone doubling its \n"
                                               "volume every second \n"
-                                              "from 2 to 64 (6 \n"
+                                              "from 4 to 127 (6 \n"
                                               "seconds total)";
 
 const char volume_slide_test_name[] PROGMEM = "Volume slide test";
@@ -282,8 +282,8 @@ const char volume_slide_test_desc[] PROGMEM = "Slide volume up in 1\n"
                                               "using different\n"
                                               "parameters and tempos";
 
-const char frequency_slide_test_name[] PROGMEM = "Frequency slide test";
-const char frequency_slide_test_desc[] PROGMEM = "Slide frequency up in 1\n"
+const char freq_slide_test_name[] PROGMEM =   "Freq. slide test";
+const char freq_slide_test_desc[] PROGMEM =   "Slide frequency up in 1\n"
                                               "second then down in 1\n"
                                               "second for 3 times\n"
                                               "using different\n"
@@ -302,10 +302,10 @@ const char vibrato_test_desc[] PROGMEM =      "Test vibrato at 3\n"
                                               "depth\n";
 
 const char mod_slide_test_name[] PROGMEM =    "Mod slide test";
-const char mod_slide_test_desc[] PROGMEM =    "Slide mod up to 255 then\n"
-                                              "down to 0 and then \n"
-                                              "back to its center \n"
-                                              "value\n";
+const char mod_slide_test_desc[] PROGMEM =    "Slide mod up to 255\n"
+                                              "then down to 0 and \n"
+                                              "then back to its \n"
+                                              "center value\n";
                                      /* Ruler: 012345678901234567890 */
 
 struct test tests[] = {
@@ -318,7 +318,7 @@ struct test tests[] = {
   /* Volume slide test: make sure volume volume slide effect behaves as expected */
   {volume_slide_test_name, volume_slide_test_desc, (const uint8_t*)&volume_slide_test_sfx},
   /* Frequency slide test: make sure frequency volume slide effect behaves as expected */
-  {frequency_slide_test_name, frequency_slide_test_desc, (const uint8_t*)&frequency_slide_test_sfx},
+  {freq_slide_test_name, freq_slide_test_desc, (const uint8_t*)&freq_slide_test_sfx},
   /* Test tremolo period and amplitude changes keep peak volume at the expected value */
   {tremolo_test_name, tremolo_test_desc, (const uint8_t*)&tremolo_test_sfx},
   /* Listen to vibrato */
