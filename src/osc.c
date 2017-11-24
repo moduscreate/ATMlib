@@ -4,9 +4,26 @@
 #include <avr/interrupt.h>
 #include "osc.h"
 
-#define OSC_TIMER_BITS (10)
-#define OSC_DC_OFFSET (1<<(OSC_TIMER_BITS-1))
-#define OSC_PWM_TOP ((1<<(OSC_TIMER_BITS))-1)
+/*
+  Mixing 4 8bit channels requires 10 bits but by setting ENHC4 in TCCR4E
+  bit 0 of OCR4A selects the timer clock edge so while the
+  resolution is 10 bits the number of timer bits used to count
+  (set in OCR4C) is 9.
+
+  See section "15.6.2 Enhanced Compare/PWM mode" in the ATmega16U4/ATmega32U4
+  datasheet. This means the PWM frequency can be double of what it would be
+  if we used 10 timer bits for counting.
+
+  Also, 8 8bit channels can be mixed (11bits resolution, 10bits
+  timer counter) if the PWM rate is halved (or fast PWM mode is used
+  instead of dual slope PWM).
+*/
+
+#define OSC_COMPARE_RESOLUTION_BITS (10)
+#define OSC_DC_OFFSET (1<<(OSC_COMPARE_RESOLUTION_BITS-1))
+
+#define OSC_TIMER_BITS (9)
+#define OSC_PWM_TOP ((1<<OSC_TIMER_BITS)-1)
 #define OSC_HI(v) ((v)>>8)
 #define OSC_LO(v) ((v)&0xFF)
 
@@ -29,13 +46,17 @@ struct callback_info osc_cb[OSC_TICK_CALLBACK_COUNT];
 void osc_setup(void)
 {
 	osc_reset();
-	PLLFRQ = 0b01101010;    // PINMUX:16MHz XTAL, PLLUSB:48MHz, PLLTM:1.5, PDIV:96MHz
-	TCCR4A = 0b01000010;    // Fast-PWM 8-bit
-	TCCR4B = 0b00000001;    // currently 31250Hz
-	TCCR4D = 0b00000001;
-	TCCR4E = 0b00000000;
+	PLLFRQ = 0b01011010;    // PINMUX:16MHz XTAL, PLLUSB:48MHz, PLLTM:1, PDIV:96MHz
+	TCCR4A = 0b01000010;    // PWM mode
+	TCCR4B = 0b00000001;    // clock source/1, 96MHz/(OCR4C+1)/2 ~ 95703Hz
+	TCCR4D = 0b00000001;    // Dual Slope PWM (the /2 in the eqn. above is because of dual slope PWM)
+	TCCR4E = 0b01000000;    // Enhanced mode (bit 0 in OCR4C selects clock edge)
 	TC4H   = OSC_HI(OSC_PWM_TOP);
-	OCR4C  = OSC_LO(OSC_PWM_TOP); // Resolution to 10-bit (TOP=0x3FF)
+	OCR4C  = OSC_LO(OSC_PWM_TOP); // Use 9-bits for counting (TOP=0x1FF)
+
+	TCCR3A = 0b00000000;
+	TCCR3B = 0b00001100;    // Mode CTC, clock source 16MHz/256 = 62500Hz
+	OCR3A  = 0x0003;        // 62500Hz/4 = 15625Hz
 }
 
 static void osc_reset(void)
@@ -59,9 +80,9 @@ static void osc_setactive(const uint8_t active_flag)
 	if (active_flag) {
 		TC4H   = OSC_HI(OSC_DC_OFFSET);
 		OCR4A  = OSC_LO(OSC_DC_OFFSET);
-		TIMSK4 = 0b00000100;
+		TIMSK3 = 0b00000010;
 	} else {
-		TIMSK4 = 0b00000000;
+		TIMSK3 = 0b00000000;
 		TC4H   = OSC_HI(OSC_DC_OFFSET);
 		OCR4A  = OSC_LO(OSC_DC_OFFSET);
 	}
@@ -121,31 +142,20 @@ static __attribute__((used)) void osc_tick_handler(void)
 
 #define ASM_EOL "\n\t"
 
-ISR(TIMER4_OVF_vect, ISR_NAKED)
+ISR(TIMER3_COMPA_vect, ISR_NAKED)
 {
 	asm volatile(
 "	push r2                                                        " ASM_EOL
 "	in   r2,                    __SREG__                           " ASM_EOL
 "	push r18                                                       " ASM_EOL
-"	lds  r18,                   osc_int_count                      " ASM_EOL
-"	dec  r18                                                       " ASM_EOL
-"	sts  osc_int_count,         r18                                " ASM_EOL
-"	;push a new sample at half the interrupt rate                  " ASM_EOL
-"	andi r18,                   1                                  " ASM_EOL
-"	breq continue                                                  " ASM_EOL
-"	pop  r18                                                       " ASM_EOL
-"	out  __SREG__,              r2                                 " ASM_EOL
-"	pop  r2                                                        " ASM_EOL
-"	reti                                                           " ASM_EOL
-"continue:                                                         " ASM_EOL
 "	push r27                                                       " ASM_EOL
 "	push r26                                                       " ASM_EOL
 "	push r0                                                        " ASM_EOL
 "	push r1                                                        " ASM_EOL
 
 "; Setup DC offset                                                 " ASM_EOL
-"	ldi  r26 ,0x00                                                 " ASM_EOL
-"	ldi  r27 ,0x02                                                 " ASM_EOL
+"	ldi  r26 ,%[dcl]                                               " ASM_EOL
+"	ldi  r27 ,%[dch]                                               " ASM_EOL
 
 "; OSC 3 noise generator                                           " ASM_EOL
 "	ldi  r18,                   1                                  " ASM_EOL
@@ -236,11 +246,12 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "1:                                                                " ASM_EOL
 "	add  r26,                   r1                                 " ASM_EOL
 "	adc  r27,                   r18                                " ASM_EOL
-
 "	sts  %[regh],               r27                                " ASM_EOL
 "	sts  %[reg],                r26                                " ASM_EOL
 "; tick handler prescaler                                          " ASM_EOL
 "	lds  r18,                   osc_int_count                      " ASM_EOL
+"	dec  r18                                                       " ASM_EOL
+"	sts  osc_int_count,         r18                                " ASM_EOL
 "	and  r18,                   r18                                " ASM_EOL
 "	;check if a channel tick is due only once every                " ASM_EOL
 "	;8 interrupts                                                  " ASM_EOL
@@ -311,9 +322,12 @@ ISR(TIMER4_OVF_vect, ISR_NAKED)
 "	pop  r2                                                        " ASM_EOL
 "	reti                                                           " ASM_EOL
 	::
+	[t4e] "M" _SFR_MEM_ADDR(TCCR4E),
 	[reg] "M" _SFR_MEM_ADDR(OCR4A),
 	[regh] "M" _SFR_MEM_ADDR(TC4H),
-	[div] "M" (OSC_ISR_PRESCALER_DIV*2),
+	[dch] "M" (OSC_HI(OSC_DC_OFFSET)),
+	[dcl] "M" (OSC_LO(OSC_DC_OFFSET)),
+	[div] "M" (OSC_ISR_PRESCALER_DIV),
 	[osz] "M" (sizeof(struct osc_params)),
 	[asz] "M" (sizeof(uint16_t)),
 	[csz] "M" (sizeof(struct callback_info)),
