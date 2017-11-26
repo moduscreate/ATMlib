@@ -39,8 +39,7 @@ trigger_both:
 
 static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
-/* Immediate commands */
-	(void)(ch_index);
+	/* Immediate commands */
 	switch (cmd_id) {
 #if ATM_HAS_FX_GLISSANDO
 		case ATM_CMD_I_GLISSANDO_OFF:
@@ -54,12 +53,6 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 			break;
 #endif
 
-#if ATM_HAS_FX_NOTECUT
-		case ATM_CMD_I_NOTECUT_OFF:
-			ch->arpNotes = 0;
-			break;
-#endif
-
 #if ATM_HAS_FX_NOISE_RETRIG
 		case ATM_CMD_I_NOISE_RETRIG_OFF:
 			ch->reConfig = 0;
@@ -68,6 +61,7 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 
 		case ATM_CMD_I_STOP:
 			goto stop_channel;
+
 		case ATM_CMD_I_RETURN:
 			if (pattern_repetition_counter(ch) > 0) {
 				/* Repeat track */
@@ -83,6 +77,7 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 				}
 			}
 			break;
+
 		case ATM_CMD_I_TRANSPOSITION_OFF:
 			ch->trans_config = 0;
 			break;
@@ -95,19 +90,61 @@ stop_channel:
 	ch->delay = 0xFFFF;
 }
 
-static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+static void process_1p_cmd(const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
-	(void)(ch_index);
-	/* Parametrised commands */
-
-	const uint8_t csz = ((cmd->id >> 4) & 0x7)+1;
 
 	switch (cmd->id & 0x0F) {
-		case ATM_CMD_ID_CALL:
+#if ATM_HAS_FX_NOISE_RETRIG
+		case ATM_CMD_1P_NOISE_RETRIG_ON:
+			ch->reConfig = cmd->params[0];
+			ch->reCount = 0;
+			break;
+#endif
+
+		case ATM_CMD_1P_SET_TRANSPOSITION:
+			ch->trans_config = cmd->params[0];
+			break;
+
+		case ATM_CMD_1P_ADD_TRANSPOSITION:
+			ch->trans_config += (int8_t)cmd->params[0];
+			break;
+
+		case ATM_CMD_1P_SET_TEMPO:
+			score_state->tick_rate = cmd->params[0];
+			break;
+
+		case ATM_CMD_1P_ADD_TEMPO:
+			score_state->tick_rate += (int8_t)cmd->params[0];
+			break;
+
+		case ATM_CMD_1P_SET_VOLUME:
+		{
+			const uint8_t vol = cmd->params[0];
+			ch->vol = vol;
+			ch->dst_osc_params->vol = vol;
+			break;
+		}
+
+		case ATM_CMD_1P_SET_MOD:
+		{
+			const uint8_t mod = cmd->params[0];
+			ch->mod = mod;
+			ch->dst_osc_params->mod = mod;
+			break;
+		}
+
+	}
+}
+
+static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, struct atm_synth_state *score_state, struct atm_channel_state *ch)
+{
+	/* Parametrised commands */
+	switch (cmd->id & 0x0F) {
+		case ATM_CMD_NP_CALL:
 			/* ignore call command if the stack is full */
 			if (ch->pstack_index < ATM_PATTERN_STACK_DEPTH-1) {
 				uint8_t new_track = cmd->params[0];
-				uint8_t new_counter = csz > 1 ? cmd->params[1] : 0;
+				uint8_t new_counter = csz > 2 ? cmd->params[1] : 0;
 				if (new_track != pattern_index(ch)) {
 					/* push new pattern on stack */
 					ch->pstack_index++;
@@ -120,71 +157,32 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 			break;
 
 #if ATM_HAS_FX_GLISSANDO
-		case ATM_CMD_ID_GLISSANDO_ON:
+		case ATM_CMD_NP_GLISSANDO_ON:
 			ch->glisConfig = cmd->params[0];
 			ch->glisCount = 0;
 			break;
 #endif
 
 #if ATM_HAS_FX_ARPEGGIO
-		case ATM_CMD_ID_ARPEGGIO_ON:
-			ch->arpNotes = cmd->params[0];
-			ch->arpTiming = cmd->params[1];
-			break;
-#endif
-
-#if ATM_HAS_FX_NOTECUT
-		case ATM_CMD_ID_NOTECUT_ON:
-			ch->arpNotes = 0xFF;
+		case ATM_CMD_NP_ARPEGGIO_ON:
 			ch->arpTiming = cmd->params[0];
+			/* arpeggio or notecut */
+			ch->arpNotes = csz > 2 ? cmd->params[1] : 0xFF;
 			break;
 #endif
 
-#if ATM_HAS_FX_NOISE_RETRIG
-		case ATM_CMD_ID_NOISE_RETRIG_ON:
-			ch->reConfig = cmd->params[0];
-			ch->reCount = 0;
-			break;
-#endif
-
-		case ATM_CMD_ID_SET_TRANSPOSITION:
-			ch->trans_config = cmd->params[0];
-			break;
-		case ATM_CMD_ID_ADD_TRANSPOSITION:
-			ch->trans_config += (int8_t)cmd->params[0];
-			break;
-		case ATM_CMD_ID_SET_TEMPO:
-			score_state->tick_rate = cmd->params[0];
-			break;
-		case ATM_CMD_ID_ADD_TEMPO:
-			score_state->tick_rate += (int8_t)cmd->params[0];
-			break;
-		case ATM_CMD_ID_SET_VOLUME:
-		{
-			const uint8_t vol = cmd->params[0];
-			ch->vol = vol;
-			ch->dst_osc_params->vol = vol;
-			break;
-		}
-		case ATM_CMD_ID_SET_MOD:
-		{
-			const uint8_t mod = cmd->params[0];
-			ch->mod = mod;
-			ch->dst_osc_params->mod = mod;
-			break;
-		}
-		case ATM_CMD_ID_SET_LOOP_PATTERN:
+		case ATM_CMD_NP_SET_LOOP_PATTERN:
 			ch->loop_pattern_index = cmd->params[0];
 			break;
 
 #if ATM_HAS_FX_SLIDE
-		case ATM_CMD_ID_SLIDE:
+		case ATM_CMD_NP_SLIDE:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (csz > 1) {
+			if (csz > 2) {
 				/* FX on */
 				ch->vf_slide.slide_count = cmd->params[0] << 6;
 				ch->vf_slide.slide_amount = (int8_t)cmd->params[1];
-				ch->vf_slide.slide_config = csz > 2 ? cmd->params[2] : 0;
+				ch->vf_slide.slide_config = csz > 3 ? cmd->params[2] : 0;
 			} else {
 				/* FX off */
 				ch->vf_slide.slide_amount = 0;
@@ -193,9 +191,9 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 #endif
 
 #if ATM_HAS_FX_LFO
-		case ATM_CMD_ID_LFO:
+		case ATM_CMD_NP_LFO:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (csz > 1) {
+			if (csz > 2) {
 				/* FX on */
 				ch->treviDepth = cmd->params[1];
 				ch->treviConfig = cmd->params[2] | (cmd->params[0] << 6);
@@ -216,8 +214,8 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 			break;
 #endif
 
-		case ATM_CMD_ID_LONG_DELAY:
-			ch->delay = csz > 1 ? (cmd->params[0]<<8)|cmd->params[1] : cmd->params[0];
+		case ATM_CMD_NP_LONG_DELAY:
+			ch->delay = csz > 2 ? (cmd->params[0]<<8)|cmd->params[1] : cmd->params[0];
 			ch->delay += 1;
 			break;
 	}
@@ -225,6 +223,8 @@ static void process_parametrised_cmd(const uint8_t ch_index, const struct atm_cm
 
 static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
+	const uint8_t **next_cmd_ptr = &pattern_cmd_ptr(ch);
+
 	if (cmd->id < 64) {
 		/* 0 … 63 : NOTE ON/OFF */
 		cmd_note(cmd->id, ch);
@@ -235,19 +235,26 @@ static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, 
 			ch->arpCount = 0;
 		}
 #endif
-		return;
-	}
-
-	/* Cmd type is the 3 MSBs */
-	const uint8_t type = cmd->id & 0xE0;
-	if (type == 0x40) {
+		*next_cmd_ptr += 1;
+	} else if (cmd->id < 0x60) {
 		/* delay */
-		ch->delay = (cmd->id & 0x3F)+1;
-	} else if (type == 0x60) {
+		ch->delay = cmd->id - 63;
+		*next_cmd_ptr += 1;
+	} else if (cmd->id < 0x70) {
 		/* immediate */
+		*next_cmd_ptr += 1;
+		/* process_immediate_cmd() can modify next_cmd_ptr so increase it first */
 		process_immediate_cmd(ch_index, cmd->id, score_state, ch);
-	} else if (type & 0x80) {
-		process_parametrised_cmd(ch_index, cmd, score_state, ch);
+	} else if (cmd->id < 0x80) {
+		/* 1 parameter byte command */
+		next_cmd_ptr += 2;
+		process_1p_cmd(cmd, score_state, ch);
+	} else {
+		const uint8_t csz = ((cmd->id >> 4) & 0x07) + 2;
+		/* n parameter byte command */
+		*next_cmd_ptr += csz;
+		/* process_np_cmd() can modify next_cmd_ptr so increase it first */
+		process_np_cmd(cmd, csz, score_state, ch);
 	}
 }
 

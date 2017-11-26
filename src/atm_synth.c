@@ -41,20 +41,6 @@ static void atm_synth_ext_tick_handler(uint8_t cb_index, void *priv);
 
 /* ---- */
 
-static void fetch_cmd(const uint8_t ch_index, struct atm_channel_state *ch, struct atm_cmd_data *cmd)
-{
-	(void)(ch_index);
-	/*
-	Reading the command first and then its parameters
-	takes up more progmem so we read a fixed amount.
-	maximum command size is 4 right now
-	*/
-	memcpy_P(cmd, pattern_cmd_ptr(ch), sizeof(struct atm_cmd_data));
-	/* Increment score pointer with the real command size */
-	const uint8_t csz = cmd->id & 0x80 ? ((cmd->id >> 4) & 0x7)+2 : 1;
-	ch->pstack[ch->pstack_index].next_cmd_ptr += csz;
-}
-
 #if ATM_HAS_FX_GLISSANDO || ATM_HAS_FX_SLIDE || ATM_HAS_FX_LFO
 
 /* flags: bit 7 = 0 clamp, 1 overflow */
@@ -354,7 +340,13 @@ static void process_channel(const uint8_t ch_index, struct atm_synth_state *scor
 
 	while (ch->delay == 0) {
 		struct atm_cmd_data cmd;
-		fetch_cmd(ch_index, ch, &cmd)
+		/*
+		Reading the command first and then its parameters
+		takes up more progmem so we read a fixed amount.
+		maximum command size is 4 right now
+		*/
+		memcpy_P(&cmd, pattern_cmd_ptr(ch), sizeof(struct atm_cmd_data));
+
 		log_cmd(ch_index, cmd.id, csz, cmd.params);
 		process_cmd(ch_index, &cmd, score_state, ch);
 	}

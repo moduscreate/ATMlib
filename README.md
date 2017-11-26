@@ -218,14 +218,12 @@ Commands are of two types: immediate when they have no extra parameters and para
 
 ```
 00 - Transpose OFF
-01 - Slide FX OFF
+01 - Stop (end pattern marker, stop playback on this channel)
 02 - Return
 03 - Glissando/Portamento OFF
 04 - Arpeggio OFF/Note Cut OFF
 05 - Noise re-trigger OFF
-06 - LFO FX OFF
-07 - Stop (end pattern marker, stop playback on this channel)
-[08, 15] - [reserved]
+[06, 15] - [reserved]
 ```
 
 #### Single byte command IDs
@@ -238,8 +236,7 @@ Commands are of two types: immediate when they have no extra parameters and para
 04 - Set Volume
 05 - Noise re-trigger
 06 - Set square wave duty cycle
-07 - [reserved]
-[08, 15] - [reserved]
+[07, 15] - [reserved]
 ```
 
 #### N bytes command IDs
@@ -254,8 +251,7 @@ N bytes commands use the lower nibble to encode 16 command IDs and bits 6:4 to e
 04 - Arpeggio/Note Cut
 05 - Long delay
 06 - LFO FX
-07 - [reserved]
-[08, 15] - [reserved]
+[07, 15] - [reserved]
 ```
 
 ##### Glissando
@@ -282,19 +278,19 @@ Parameter count: 2
 
 P1
     Size   : 1 byte
-    Name   : chord
-    Format : bkkkknnnn
-              ||||└└└└-> 3nd note shift: semitones to add to the 2nd [0,14]
-              └└└└-----> 2nd note shift: semitones to add to the 1st [0,14]
-
-P2
-    Size   : 1 byte
     Name   : Effect configuration
     Format : b-edttttt
               |||└└└└└-> ticks between note change minus one [0, 31]
               ||└------> 1: retrigger, 0: no retrigger
               |└-------> 1: skip 3rd note, 0: play 3rd note
               └--------> [reserved]
+
+P2
+    Size   : 1 byte
+    Name   : Chord note shifts
+    Format : bkkkknnnn
+              ||||└└└└-> 3nd note shift: semitones to add to the 2nd [0,14]
+              └└└└-----> 2nd note shift: semitones to add to the 1st [0,14]
 ```
 
 ##### Note Cut
@@ -305,9 +301,13 @@ Note cut - Stop note automatically after N ticks
 Parameter count: 1
 
 P1
-    Size  : 1 byte
-    Name  : Note duration
-    Range : [0,255] (u8)
+    Size   : 1 byte
+    Name   : Effect configuration
+    Format : b--dttttt
+              |||└└└└└-> ticks between note change minus one [0, 31]
+              ||└------> 1: retrigger, 0: no retrigger
+              |└-------> [reserved]
+              └--------> [reserved]
 ```
 
 ##### Noise re-trigger
