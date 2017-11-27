@@ -1,5 +1,13 @@
 
 
+enum atm_cmd_blocks_constants {
+	ATM_CMD_BLK_NOTE = 0,
+	ATM_CMD_BLK_DELAY = 64,
+	ATM_CMD_BLK_IMMEDIATE = 0x60,
+	ATM_CMD_BLK_1_PARAMETER = 0x70,
+	ATM_CMD_BLK_N_PARAMETER = 0x80,
+};
+
 enum atm_immediate_cmd_constants {
 
 	ATM_CMD_I_NOTE_OFF = 0,

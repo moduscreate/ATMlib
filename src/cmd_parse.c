@@ -41,23 +41,10 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 {
 	/* Immediate commands */
 	switch (cmd_id) {
-#if ATM_HAS_FX_GLISSANDO
-		case ATM_CMD_I_GLISSANDO_OFF:
-			ch->glisConfig = 0;
-			break;
-#endif
 
-#if ATM_HAS_FX_ARPEGGIO
-		case ATM_CMD_I_ARPEGGIO_OFF:
-			ch->arpNotes = 0;
+		case ATM_CMD_I_TRANSPOSITION_OFF:
+			ch->trans_config = 0;
 			break;
-#endif
-
-#if ATM_HAS_FX_NOISE_RETRIG
-		case ATM_CMD_I_NOISE_RETRIG_OFF:
-			ch->reConfig = 0;
-			break;
-#endif
 
 		case ATM_CMD_I_STOP:
 			goto stop_channel;
@@ -78,9 +65,23 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 			}
 			break;
 
-		case ATM_CMD_I_TRANSPOSITION_OFF:
-			ch->trans_config = 0;
+#if ATM_HAS_FX_GLISSANDO
+		case ATM_CMD_I_GLISSANDO_OFF:
+			ch->glisConfig = 0;
 			break;
+#endif
+
+#if ATM_HAS_FX_ARPEGGIO
+		case ATM_CMD_I_ARPEGGIO_OFF:
+			ch->arpNotes = 0;
+			break;
+#endif
+
+#if ATM_HAS_FX_NOISE_RETRIG
+		case ATM_CMD_I_NOISE_RETRIG_OFF:
+			ch->reConfig = 0;
+			break;
+#endif
 	}
 	return;
 
@@ -132,7 +133,6 @@ static void process_1p_cmd(const struct atm_cmd_data *cmd, struct atm_synth_stat
 			ch->dst_osc_params->mod = mod;
 			break;
 		}
-
 	}
 }
 
@@ -225,7 +225,7 @@ static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, 
 {
 	const uint8_t **next_cmd_ptr = &pattern_cmd_ptr(ch);
 
-	if (cmd->id < 64) {
+	if (cmd->id < ATM_CMD_BLK_DELAY) {
 		/* 0 … 63 : NOTE ON/OFF */
 		cmd_note(cmd->id, ch);
 
@@ -236,16 +236,16 @@ static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, 
 		}
 #endif
 		*next_cmd_ptr += 1;
-	} else if (cmd->id < 0x60) {
+	} else if (cmd->id < ATM_CMD_BLK_IMMEDIATE) {
 		/* delay */
 		ch->delay = cmd->id - 63;
 		*next_cmd_ptr += 1;
-	} else if (cmd->id < 0x70) {
+	} else if (cmd->id < ATM_CMD_BLK_1_PARAMETER) {
 		/* immediate */
 		*next_cmd_ptr += 1;
 		/* process_immediate_cmd() can modify next_cmd_ptr so increase it first */
 		process_immediate_cmd(ch_index, cmd->id, score_state, ch);
-	} else if (cmd->id < 0x80) {
+	} else if (cmd->id < ATM_CMD_BLK_N_PARAMETER) {
 		/* 1 parameter byte command */
 		next_cmd_ptr += 2;
 		process_1p_cmd(cmd, score_state, ch);
