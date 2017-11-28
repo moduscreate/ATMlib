@@ -46,17 +46,18 @@ struct callback_info osc_cb[OSC_TICK_CALLBACK_COUNT];
 void osc_setup(void)
 {
 	osc_reset();
-	PLLFRQ = 0b01011010;    // PINMUX:16MHz XTAL, PLLUSB:48MHz, PLLTM:1, PDIV:96MHz
-	TCCR4A = 0b01000010;    // PWM mode
-	TCCR4B = 0b00000001;    // clock source/1, 96MHz/(OCR4C+1)/2 ~ 95703Hz
-	TCCR4D = 0b00000001;    // Dual Slope PWM (the /2 in the eqn. above is because of dual slope PWM)
-	TCCR4E = 0b01000000;    // Enhanced mode (bit 0 in OCR4C selects clock edge)
+	/* PWM setup using timer 4 */
+	PLLFRQ = 0b01011010;    /* PINMUX:16MHz XTAL, PLLUSB:48MHz, PLLTM:1, PDIV:96MHz */
+	TCCR4A = 0b01000010;    /* PWM mode */
+	/* TCCR4B will be se to 0b00000001 for clock source/1, 96MHz/(OCR4C+1)/2 ~ 95703Hz */
+	TCCR4D = 0b00000001;    /* Dual Slope PWM (the /2 in the eqn. above is because of dual slope PWM) */
+	TCCR4E = 0b01000000;    /* Enhanced mode (bit 0 in OCR4C selects clock edge) */
 	TC4H   = OSC_HI(OSC_PWM_TOP);
-	OCR4C  = OSC_LO(OSC_PWM_TOP); // Use 9-bits for counting (TOP=0x1FF)
+	OCR4C  = OSC_LO(OSC_PWM_TOP); /* Use 9-bits for counting (TOP=0x1FF) */
 
 	TCCR3A = 0b00000000;
-	TCCR3B = 0b00001001;    // Mode CTC, clock source 16MHz
-	OCR3A  = (16E6/OSC_SAMPLERATE)-1; // 16MHz/1k = 16kHz
+	TCCR3B = 0b00001001;    /* Mode CTC, clock source 16MHz */
+	OCR3A  = (16E6/OSC_SAMPLERATE)-1; /* 16MHz/1k = 16kHz */
 }
 
 static void osc_reset(void)
@@ -80,11 +81,11 @@ static void osc_setactive(const uint8_t active_flag)
 	if (active_flag) {
 		TC4H   = OSC_HI(OSC_DC_OFFSET);
 		OCR4A  = OSC_LO(OSC_DC_OFFSET);
-		TIMSK3 = 0b00000010;
+		TCCR4B = 0b00000001;    /* clock source/1, 96MHz/(OCR4C+1)/2 ~ 95703Hz */
+		TIMSK3 = 0b00000010;    /* interrupts on */
 	} else {
-		TIMSK3 = 0b00000000;
-		TC4H   = OSC_HI(OSC_DC_OFFSET);
-		OCR4A  = OSC_LO(OSC_DC_OFFSET);
+		TIMSK3 = 0b00000000;    /* interrupts off */
+		TCCR4B = 0b00000000;    /* PWM = off */
 	}
 }
 
