@@ -15,14 +15,22 @@ Contributors (Alphabetical order):
 
 Thanks to [Modus Create](https://moduscreate.com) for sponsoring and participating in the development.
 
-### Features
+### New Features
 
-* Score format supports minimal scores (1 byte overhead)
-* Extensible command encoding designed for simpler and smaller parser
+* Updated score format for simpler and smaller decoder
+* Add reduced size score formats: minimal scores have 1 byte overhead (for the header)
+* Command encoding designed for simpler and smaller decoder
+* Macros for manual song creation
+* C++ API built on top of C API
 * 4 channels: 3 square wave with independent programmable duty cycle + 1 noise
 * LFO and slide effects can be applied to square wave duty cycle
-* Asynchronous playback of 1 sound effect as a mono music score on an arbitrary channel with independent tempo. Music is muted on the channel used by sound effects and resumed when the sound effect is stopped or finishes playback.
-
+* Asynchronous playback of 1 sound effect as a mono music score on an arbitrary channel with independent tempo. Music is muted on the channel used by sound effects and resumed when the sound effect is stopped or playback finishes
+* Dual timer design: PWM carrier from 31kHz to 93kHz for improved audio quality
+* 10bit PWM resolution: mixing of 4 8bit full volume channels without clipping
+* Reduced CPU usage by interrupts: interrupt rate halved without reducing sample rate, simplified interrupt handler
+* Note frequencies are closer to the expected value within the limits of the MCU's clocksource
+* Effects can selectively disabled at compile time to reduce code size
+* Automatic interrupt disable when not in use to save CPU cycles
 
 ### Music playback example
 
