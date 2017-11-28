@@ -346,8 +346,6 @@ static void process_channel(const uint8_t ch_index, struct atm_synth_state *scor
 		maximum command size is 4 right now
 		*/
 		memcpy_P(&cmd, pattern_cmd_ptr(ch), sizeof(struct atm_cmd_data));
-
-		log_cmd(ch_index, cmd.id, csz, cmd.params);
 		process_cmd(ch_index, &cmd, score_state, ch);
 	}
 

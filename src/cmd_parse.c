@@ -39,8 +39,10 @@ trigger_both:
 
 static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
+	const enum atm_immediate_cmd_constants cid = cmd_id;
+
 	/* Immediate commands */
-	switch (cmd_id) {
+	switch (cid) {
 
 		case ATM_CMD_I_TRANSPOSITION_OFF:
 			ch->trans_config = 0;
@@ -90,8 +92,9 @@ stop_channel:
 
 static void process_1p_cmd(const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
+	const enum atm_single_byte_cmd_id_constants cid = cmd->id;
 
-	switch (cmd->id & 0x0F) {
+	switch (cid) {
 #if ATM_HAS_FX_NOISE_RETRIG
 		case ATM_CMD_1P_NOISE_RETRIG_ON:
 			ch->reConfig = cmd->params[0];
@@ -135,14 +138,16 @@ static void process_1p_cmd(const struct atm_cmd_data *cmd, struct atm_synth_stat
 
 static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
+	const enum atm_parametrised_cmd_id_constants cid = cmd->id & 0x0F;
+
 	/* Parametrised commands */
-	switch (cmd->id & 0x0F) {
+	switch (cid) {
 		case ATM_CMD_NP_CALL:
 			/* ignore call command if the stack is full */
 			if (ch->pstack_index < ATM_PATTERN_STACK_DEPTH-1) {
 				const uint8_t new_track = cmd->params[0];
 				if (new_track != pattern_index(ch)) {
-					const uint8_t new_counter = csz > 2 ? cmd->params[1] : 0;
+					const uint8_t new_counter = csz > 1 ? cmd->params[1] : 0;
 					/* push new pattern on stack */
 					ch->pstack_index++;
 					pattern_index(ch) = new_track;
@@ -164,7 +169,7 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 		case ATM_CMD_NP_ARPEGGIO_ON:
 			ch->arpTiming = cmd->params[0];
 			/* arpeggio or notecut */
-			ch->arpNotes = csz > 2 ? cmd->params[1] : 0xFF;
+			ch->arpNotes = csz > 1 ? cmd->params[1] : 0xFF;
 			break;
 #endif
 
@@ -175,11 +180,11 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 #if ATM_HAS_FX_SLIDE
 		case ATM_CMD_NP_SLIDE:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (csz > 2) {
+			if (csz > 1) {
 				/* FX on */
 				ch->vf_slide.slide_count = cmd->params[0] << 6;
 				ch->vf_slide.slide_amount = (int8_t)cmd->params[1];
-				ch->vf_slide.slide_config = csz > 3 ? cmd->params[2] : 0;
+				ch->vf_slide.slide_config = csz > 2 ? cmd->params[2] : 0;
 			} else {
 				/* FX off */
 				ch->vf_slide.slide_amount = 0;
@@ -190,7 +195,7 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 #if ATM_HAS_FX_LFO
 		case ATM_CMD_NP_LFO:
 			/* b------pp s = pp = param: vol, freq, mod */
-			if (csz > 2) {
+			if (csz > 1) {
 				/* FX on */
 				ch->treviDepth = cmd->params[1];
 				ch->treviConfig = cmd->params[2] | (cmd->params[0] << 6);
@@ -212,7 +217,7 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 #endif
 
 		case ATM_CMD_NP_LONG_DELAY:
-			ch->delay = csz > 2 ? (cmd->params[0]<<8)|cmd->params[1] : cmd->params[0];
+			ch->delay = csz > 1 ? (cmd->params[0]<<8)|cmd->params[1] : cmd->params[0];
 			ch->delay += 1;
 			break;
 	}
@@ -242,7 +247,7 @@ static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, 
 		process_immediate_cmd(ch_index, cmd->id, score_state, ch);
 	} else if (cmd->id < ATM_CMD_BLK_N_PARAMETER) {
 		/* 1 parameter byte command */
-		next_cmd_ptr += 1;
+		*next_cmd_ptr += 1;
 		process_1p_cmd(cmd, score_state, ch);
 	} else {
 		const uint8_t csz = ((cmd->id >> 4) & 0x07) + 1;

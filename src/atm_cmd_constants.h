@@ -8,7 +8,7 @@ enum atm_cmd_blocks_constants {
 	ATM_CMD_BLK_N_PARAMETER = 0x80,
 };
 
-enum atm_immediate_cmd_constants {
+enum atm_note_cmd_constants {
 
 	ATM_CMD_I_NOTE_OFF = 0,
 
@@ -83,7 +83,9 @@ enum atm_immediate_cmd_constants {
 
 	/* Use as ATM_CMD_I_DELAY_1_TICK+[num-ticks] e.g. ATM_CMD_I_DELAY_1_TICK+3 for 4 ticks */
 	ATM_CMD_I_DELAY_1_TICK = 64,
+};
 
+enum atm_immediate_cmd_constants {
 	ATM_CMD_I_TRANSPOSITION_OFF = 96,
 	ATM_CMD_I_PATTERN_END,
 	ATM_CMD_I_STOP = ATM_CMD_I_PATTERN_END, /* deprecated */
@@ -184,9 +186,9 @@ enum atm_parametrised_cmd_constants {
 #define ATM_CMD_M_SLIDE_FREQ_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 1, (uint8_t)(p1), (p2-1)
 #define ATM_CMD_M_SLIDE_MOD_ADV_ON(p1, p2) ATM_CMD_P_SLIDE_ADV_ON, 2, (uint8_t)(p1), (p2-1)
 
-#define ATM_CMD_M_SLIDE_VOL_ADV_OFF ATM_CMD_P_SLIDE_ADV_OFF, 0
-#define ATM_CMD_M_SLIDE_FREQ_ADV_OFF ATM_CMD_P_SLIDE_ADV_OFF, 1
-#define ATM_CMD_M_SLIDE_MOD_ADV_OFF ATM_CMD_P_SLIDE_ADV_OFF, 2
+#define ATM_CMD_M_SLIDE_VOL_ADV_OFF ATM_CMD_P_SLIDE_OFF, 0
+#define ATM_CMD_M_SLIDE_FREQ_ADV_OFF ATM_CMD_P_SLIDE_OFF, 1
+#define ATM_CMD_M_SLIDE_MOD_ADV_OFF ATM_CMD_P_SLIDE_OFF, 2
 
 #define ATM_CMD_M_TREMOLO_ON(depth, rate) ATM_CMD_P_LFO_ON, 0, (depth), (rate-1)
 #define ATM_CMD_M_VIBRATO_ON(depth, rate) ATM_CMD_P_LFO_ON, 1, (depth), (rate-1)
