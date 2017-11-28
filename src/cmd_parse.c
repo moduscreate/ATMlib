@@ -46,10 +46,7 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 			ch->trans_config = 0;
 			break;
 
-		case ATM_CMD_I_STOP:
-			goto stop_channel;
-
-		case ATM_CMD_I_RETURN:
+		case ATM_CMD_I_PATTERN_END:
 			if (pattern_repetition_counter(ch) > 0) {
 				/* Repeat track */
 				pattern_repetition_counter(ch)--;
@@ -143,17 +140,17 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 		case ATM_CMD_NP_CALL:
 			/* ignore call command if the stack is full */
 			if (ch->pstack_index < ATM_PATTERN_STACK_DEPTH-1) {
-				uint8_t new_track = cmd->params[0];
-				uint8_t new_counter = csz > 2 ? cmd->params[1] : 0;
+				const uint8_t new_track = cmd->params[0];
 				if (new_track != pattern_index(ch)) {
+					const uint8_t new_counter = csz > 2 ? cmd->params[1] : 0;
 					/* push new pattern on stack */
 					ch->pstack_index++;
 					pattern_index(ch) = new_track;
+					pattern_repetition_counter(ch) = new_counter;
+					pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
 				}
-				pattern_repetition_counter(ch) = new_counter;
 			}
-			/* if the stack is full and we cannot call, the start of the current pattern will be fetched */
-			pattern_cmd_ptr(ch) = get_track_start_ptr(score_state, pattern_index(ch));
+			/* if the stack is full and we cannot call, skip the call command */
 			break;
 
 #if ATM_HAS_FX_GLISSANDO
@@ -224,6 +221,7 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, struct atm_synth_state *score_state, struct atm_channel_state *ch)
 {
 	const uint8_t **next_cmd_ptr = &pattern_cmd_ptr(ch);
+	*next_cmd_ptr += 1;
 
 	if (cmd->id < ATM_CMD_BLK_DELAY) {
 		/* 0 … 63 : NOTE ON/OFF */
@@ -235,22 +233,19 @@ static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, 
 			ch->arpCount = 0;
 		}
 #endif
-		*next_cmd_ptr += 1;
 	} else if (cmd->id < ATM_CMD_BLK_IMMEDIATE) {
 		/* delay */
 		ch->delay = cmd->id - 63;
-		*next_cmd_ptr += 1;
 	} else if (cmd->id < ATM_CMD_BLK_1_PARAMETER) {
 		/* immediate */
-		*next_cmd_ptr += 1;
 		/* process_immediate_cmd() can modify next_cmd_ptr so increase it first */
 		process_immediate_cmd(ch_index, cmd->id, score_state, ch);
 	} else if (cmd->id < ATM_CMD_BLK_N_PARAMETER) {
 		/* 1 parameter byte command */
-		next_cmd_ptr += 2;
+		next_cmd_ptr += 1;
 		process_1p_cmd(cmd, score_state, ch);
 	} else {
-		const uint8_t csz = ((cmd->id >> 4) & 0x07) + 2;
+		const uint8_t csz = ((cmd->id >> 4) & 0x07) + 1;
 		/* n parameter byte command */
 		*next_cmd_ptr += csz;
 		/* process_np_cmd() can modify next_cmd_ptr so increase it first */

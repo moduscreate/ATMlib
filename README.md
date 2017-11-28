@@ -218,11 +218,10 @@ Commands are of two types: immediate when they have no extra parameters and para
 
 ```
 00 - Transpose OFF
-01 - Stop (end pattern marker, stop playback on this channel)
-02 - Return
-03 - Glissando/Portamento OFF
-04 - Arpeggio OFF/Note Cut OFF
-05 - Noise re-trigger OFF
+01 - Pattern End/Return
+02 - Glissando/Portamento OFF
+03 - Arpeggio OFF/Note Cut OFF
+04 - Noise re-trigger OFF
 [06, 15] - [reserved]
 ```
 
