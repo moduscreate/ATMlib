@@ -4,10 +4,9 @@
 
 #include "atm_cmd_constants.h"
 
-static void cmd_note(const uint8_t note, struct atm_channel_state *ch)
+static void trigger_note(const uint8_t note, struct atm_channel_state *ch)
 {
-	ch->note = note ? note + ch->trans_config : note;
-	ch->dst_osc_params->phase_increment = note_index_2_phase_inc(ch->note);
+	ch->dst_osc_params->phase_increment = note_index_2_phase_inc(note + ch->trans_config);
 	if (!note) {
 		ch->dst_osc_params->vol = 0;
 	} else if (!ch->vf_slide.slide_amount) {
@@ -210,7 +209,7 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 				   value in case it is not interrupted on a period boundary.
 				   Fixing this costs ~ +30 bytes of code so I'm calling it a
 				   feature for the time being.
-				cmd_note(ch->note, ch);
+				trigger_note(ch->note, ch);
 				*/
 			}
 			break;
@@ -230,7 +229,8 @@ static void process_cmd(const uint8_t ch_index, const struct atm_cmd_data *cmd, 
 
 	if (cmd->id < ATM_CMD_BLK_DELAY) {
 		/* 0 … 63 : NOTE ON/OFF */
-		cmd_note(cmd->id, ch);
+		ch->note = cmd->id;
+		trigger_note(cmd->id, ch);
 
 #if ATM_HAS_FX_NOTE_RETRIG
 		/* ARP retriggering */
