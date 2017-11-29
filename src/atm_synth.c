@@ -136,6 +136,7 @@ static void atm_synth_init_channel(struct atm_channel_state *ch, struct osc_para
 	memset(ch, 0, sizeof(*ch));
 	ch->arpCount = 0x80;
 	ch->mod = 0x7F;
+	ch->loop_pattern_index == 255;
 	ch->dst_osc_params = dst;
 	ch->pstack[0].next_cmd_ptr = get_track_start_ptr(player, pattern_index);
 	ch->pstack[0].pattern_index = pattern_index;
@@ -393,7 +394,7 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 		for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
 			struct atm_channel_state *const ch = &channels[k];
 			/* a quirk in the original implementation does not allow to loop to pattern 0 */
-			if (!ch->loop_pattern_index) {
+			if (ch->loop_pattern_index == 255) {
 				continue;
 			}
 			pattern_cmd_ptr(ch) = get_track_start_ptr(&atmlib_state, ch->loop_pattern_index);
