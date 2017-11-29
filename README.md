@@ -288,7 +288,7 @@ P1
     Name   : Effect configuration
     Format : b-edttttt
               |||└└└└└-> ticks between note change minus one [0, 31]
-              ||└------> 1: retrigger, 0: no retrigger
+              ||└------> 0: auto repeat, 1: trigger with note
               |└-------> 1: skip 3rd note, 0: play 3rd note
               └--------> [reserved]
 
@@ -312,7 +312,7 @@ P1
     Name   : Effect configuration
     Format : b--dttttt
               |||└└└└└-> ticks between note change minus one [0, 31]
-              ||└------> 1: retrigger, 0: no retrigger
+              ||└------> 0: auto repeat, 1: trigger with note
               |└-------> [reserved]
               └--------> [reserved]
 ```

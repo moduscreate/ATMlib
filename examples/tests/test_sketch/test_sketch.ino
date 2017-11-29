@@ -252,6 +252,50 @@ const PROGMEM struct mod_slide_test_sfx {
   },
 };
 
+const PROGMEM struct arpeggio_test_sfx {
+  uint8_t fmt;
+  uint8_t pattern0[70];
+} arpeggio_test_sfx = {
+  .fmt = ATM_SCORE_FMT_MINIMAL_MONO,
+  .pattern0 = {
+    ATM_CMD_M_SET_VOLUME(127),
+    ATM_CMD_M_SET_TEMPO(30),
+    ATM_CMD_M_ARPEGGIO_ON(0x34, 10),
+    ATM_CMD_I_NOTE_C4,
+    ATM_CMD_M_DELAY_TICKS(30),
+    ATM_CMD_M_DELAY_TICKS(30),
+    ATM_CMD_M_DELAY_TICKS(30),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_ARPEGGIO_OFF,
+    ATM_CMD_M_SET_TEMPO(20),
+    ATM_CMD_M_ARPEGGIO_ON(0x34, 10 | 0x40),
+    ATM_CMD_I_NOTE_C5,
+    ATM_CMD_M_DELAY_TICKS(20),
+    ATM_CMD_M_DELAY_TICKS(20),
+    ATM_CMD_M_DELAY_TICKS(20),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_ARPEGGIO_OFF,
+    ATM_CMD_M_SET_TEMPO(20),
+    ATM_CMD_M_NOTECUT_ON(10),
+    ATM_CMD_I_NOTE_C6,
+    ATM_CMD_M_DELAY_TICKS(20),
+    ATM_CMD_M_DELAY_TICKS(20),
+    ATM_CMD_M_DELAY_TICKS(20),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_NOTECUT_OFF,
+    ATM_CMD_M_SET_TEMPO(30),
+    ATM_CMD_M_ARPEGGIO_ON(0x34, 10 | 0x20),
+    ATM_CMD_I_NOTE_C4,
+    ATM_CMD_M_DELAY_TICKS(30),
+    ATM_CMD_M_DELAY_TICKS(30),
+    ATM_CMD_I_NOTE_C4,
+    ATM_CMD_M_DELAY_TICKS(30),
+    ATM_CMD_I_NOTE_OFF,
+    ATM_CMD_I_ARPEGGIO_OFF,
+    ATM_CMD_I_STOP,
+  },
+};
+
 struct test {
   const char *test_name;
   const char *test_exp_desc;
@@ -306,6 +350,13 @@ const char mod_slide_test_desc[] PROGMEM =    "Slide mod up to 255\n"
                                               "then down to 0 and \n"
                                               "then back to its \n"
                                               "center value\n";
+
+const char arpeggio_test_name[] PROGMEM =     "Arpeggio/Notecut";
+const char arpeggio_test_desc[] PROGMEM =     "3*1s 3notes arp\n"
+                                              "3*1s 2notes arp\n"
+                                              "3*1s note cut\n"
+                                              "3notes arp, 1s off\n"
+                                              "3notes arp triggered";
                                      /* Ruler: 012345678901234567890 */
 
 struct test tests[] = {
@@ -325,6 +376,8 @@ struct test tests[] = {
   {vibrato_test_name, vibrato_test_desc, (const uint8_t*)&vibrato_test_sfx},
   /* Listen to duty cycle modulation ;-) TODO: change to use LFO once supported */
   {mod_slide_test_name, mod_slide_test_desc, (const uint8_t*)&mod_slide_test_sfx},
+  /* Arpeggio and note cut */
+  {arpeggio_test_name, arpeggio_test_desc, (const uint8_t*)&arpeggio_test_sfx},
 };
 
 Arduboy2 arduboy;

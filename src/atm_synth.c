@@ -134,6 +134,7 @@ void atm_synth_setup(void)
 static void atm_synth_init_channel(struct atm_channel_state *ch, struct osc_params *dst, struct atm_synth_state *player, uint8_t pattern_index)
 {
 	memset(ch, 0, sizeof(*ch));
+	ch->arpCount = 0x80;
 	ch->mod = 0x7F;
 	ch->dst_osc_params = dst;
 	ch->pstack[0].next_cmd_ptr = get_track_start_ptr(player, pattern_index);
@@ -286,32 +287,30 @@ static void process_fx(const uint8_t ch_index, struct atm_synth_state *score_sta
 #endif
 
 #if ATM_HAS_FX_NOTE_RETRIG
-	// Apply Arpeggio or Note Cut
-	if (ch->arpNotes && ch->note) {
-		if ((ch->arpCount & 0x1F) < (ch->arpTiming & 0x1F)) {
-			ch->arpCount++;
-		} else {
-			if ((ch->arpCount & 0xE0) == 0x00) {
-				ch->arpCount = 0x20;
-			} else if ((ch->arpCount & 0xE0) == 0x20 && !(ch->arpTiming & 0x40) && (ch->arpNotes != 0xFF)) {
-				ch->arpCount = 0x40;
+	{
+		uint8_t arp_flags = ch->arpCount & 0xE0;
+		/* Apply Arpeggio or Note Cut */
+		if ((arp_flags != 0x80) && ch->note) {
+			if ((ch->arpCount & 0x1F) < (ch->arpTiming & 0x1F)) {
+				ch->arpCount++;
 			} else {
-				ch->arpCount = 0x00;
-			}
-			uint8_t arpNote = ch->note;
-			if ((ch->arpCount & 0xE0) != 0x00) {
-				if (ch->arpNotes == 0xFF) {
-					arpNote = 0;
+				const uint8_t note = ch->note;
+				const uint8_t num_notes = ch->arpTiming & 0x40 ? 0x20 : 0x40;
+				uint8_t arp_note;
+
+				if (arp_flags == num_notes) {
+					/* is re-trigger disabled ? */
+					const uint8_t disable_auto_trigger = ch->arpTiming & 0x20;
+					arp_flags = disable_auto_trigger ? 0x80 : 0;
+					arp_note = disable_auto_trigger ? 0 : note;
 				} else {
-					arpNote += (ch->arpNotes >> 4);
+					const uint8_t note_inc = arp_flags ? ch->arpNotes & 0x0F : ch->arpNotes >> 4;
+					arp_note = note_inc == 0x0F ? 0 : note + note_inc;
+					arp_flags += 0x20;
 				}
+				trigger_note(arp_note, ch);
+				ch->arpCount = arp_flags;
 			}
-			if ((ch->arpCount & 0xE0) == 0x40) {
-				arpNote += (ch->arpNotes & 0x0F);
-			}
-			// Is it correct to add ch->trans_config to arpNote? The existing note should
-			// already be transposed.
-			ch->dst_osc_params->phase_increment = note_index_2_phase_inc(arpNote + ch->trans_config);
 		}
 	}
 #endif

@@ -71,7 +71,7 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 
 #if ATM_HAS_FX_ARPEGGIO
 		case ATM_CMD_I_ARPEGGIO_OFF:
-			ch->arpNotes = 0;
+			ch->arpCount = 0x80;
 			break;
 #endif
 
@@ -169,6 +169,7 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 			ch->arpTiming = cmd->params[0];
 			/* arpeggio or notecut */
 			ch->arpNotes = csz > 1 ? cmd->params[1] : 0xFF;
+			ch->arpCount = 0x00;
 			break;
 #endif
 

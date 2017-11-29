@@ -159,7 +159,7 @@ enum atm_parametrised_cmd_constants {
 #define ATM_CMD_M_GLISSANDO_ON(p1) ATM_CMD_P_GLISSANDO_ON, (p1)
 
 #define ATM_CMD_M_ARPEGGIO_ON(p1, p2) ATM_CMD_P_ARPEGGIO_ON, (p2), (p1)
-#define ATM_CMD_M_NOTECUT_ON(p1) ATM_CMD_P_NOTECUT_ON, (p1)
+#define ATM_CMD_M_NOTECUT_ON(p1) ATM_CMD_P_NOTECUT_ON, (p1 | 0x40)
 
 #define ATM_CMD_M_NOISE_RETRIG_ON(p1) ATM_CMD_P_NOISE_RETRIG_ON, (p1)
 
