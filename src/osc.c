@@ -69,10 +69,6 @@ static void osc_reset(void)
 		/* set modulation to 50% duty cycle */
 		osc_params_array[i].mod = 0x7F;
 	}
-	for (uint8_t i=0; i<OSC_TICK_CALLBACK_COUNT; i++) {
-		osc_cb[i].callback_prescaler_preset = 255;
-		osc_cb[i].callback_prescaler_counter = 255;
-	}
 	osc_params_array[OSC_CH_THREE].phase_increment = 0x0001; // Seed LFSR
 }
 
