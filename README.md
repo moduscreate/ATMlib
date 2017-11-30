@@ -25,12 +25,14 @@ Thanks to [Modus Create](https://moduscreate.com) for sponsoring and participati
 * 4 channels: 3 square wave with independent programmable duty cycle + 1 noise
 * LFO and slide effects can be applied to square wave duty cycle
 * Asynchronous playback of 1 sound effect as a mono music score on an arbitrary channel with independent tempo. Music is muted on the channel used by sound effects and resumed when the sound effect is stopped or playback finishes
-* Dual timer design: PWM carrier from 31kHz to 93kHz for improved audio quality
+* Dual timer design: 93kHz PWM carrier for improved audio quality (was 31kHz)
 * 10bit PWM resolution: mixing of 4 8bit full volume channels without clipping
 * Reduced CPU usage by interrupts: interrupt rate halved without reducing sample rate, simplified interrupt handler
 * Note frequencies are closer to the expected value within the limits of the MCU's clocksource
 * Effects can selectively disabled at compile time to reduce code size
-* Automatic interrupt disable when not in use to save CPU cycles
+* Automatic interrupt and PWM disable when not in use to save CPU cycles and battery
+
+All of the above while code size was reduced (from 3245 to 2268 bytes as of da3cdbca79ea5ce22431061a4365d45d771434b3) and bug were squashed!
 
 ### Music playback example
 
@@ -222,49 +224,54 @@ Commands are of two types: immediate when they have no extra parameters and para
 1111---- : [reserved]
 ```
 
-#### Immediate command IDs
+#### Immediate command Macros
 
 ```
-00 - Transpose OFF
-01 - Pattern End/Return
-02 - Glissando/Portamento OFF
-03 - Arpeggio OFF/Note Cut OFF
-04 - Noise re-trigger OFF
-[06, 15] - [reserved]
+ATM_CMD_I_TRANSPOSITION_OFF - Transpose OFF
+ATM_CMD_I_PATTERN_END       - Pattern End/Return
+ATM_CMD_I_GLISSANDO_OFF     - Glissando/Portamento OFF
+ATM_CMD_I_ARPEGGIO_OFF      - Arpeggio OFF
+ATM_CMD_I_NOTECUT_OFF       - Note Cut OFF (alias for Arpeggio OFF)
+ATM_CMD_I_NOISE_RETRIG_OFF  - Noise re-trigger OFF
 ```
 
-#### Single byte command IDs
+#### Single byte command Macros (do not use directly, see the following Public Command Macros section)
 
 ```
-00 - Set transposition
-01 - Add transposition
-02 - Set tempo
-03 - Add tempo
-04 - Set Volume
-05 - Noise re-trigger
-06 - Set square wave duty cycle
-[07, 15] - [reserved]
+ATM_CMD_1P_SET_TRANSPOSITION - Set transposition
+ATM_CMD_1P_ADD_TRANSPOSITION - Add transposition
+ATM_CMD_1P_SET_TEMPO         - Set tempo
+ATM_CMD_1P_ADD_TEMPO         - Add tempo
+ATM_CMD_1P_SET_VOLUME        - Set Volume
+ATM_CMD_1P_NOISE_RETRIG_ON   - Noise re-trigger
+ATM_CMD_1P_SET_MOD           - Set square wave duty cycle
 ```
 
-#### N bytes command IDs
+#### N bytes command Macros (do not use directly, see the following Public Command Macros section)
 
 N bytes commands use the lower nibble to encode 16 command IDs and bits 6:4 to encode the number of parameter bytes which follow the command starting at 0 i.e. a value of ```b10000000``` means parametrised command ID 0 followed by 1 parameter byte.
 
 ```
-00 - Setup pattern loop
-01 - Slide FX
-02 - Call
-03 - Glissando/Portamento
-04 - Arpeggio/Note Cut
-05 - Long delay
-06 - LFO FX
-[07, 15] - [reserved]
+ATM_CMD_NP_SET_LOOP_PATTERN - Setup pattern loop
+ATM_CMD_NP_SLIDE            - Slide FX
+ATM_CMD_NP_CALL             - Call
+ATM_CMD_NP_GLISSANDO_ON     - Glissando/Portamento
+ATM_CMD_NP_ARPEGGIO_ON      - Arpeggio/Note Cut
+ATM_CMD_NP_LONG_DELAY       - Long delay
+ATM_CMD_NP_LFO              - LFO FX
 ```
+
+#### Public Command Macros
+
+Updates to command encoding, parsing and effects implementation is still in progress and subject to change without notice. Command macros listed below are provided as a way to mitigate issues caused by changes and are the only approved tool to write patterns for now.
 
 ##### Glissando
 
 ```
 Glissando - Raise or lower the current note by one semitone every N ticks
+
+Macros         : ATM_CMD_M_GLISSANDO_ON(p1)
+               : ATM_CMD_I_GLISSANDO_OFF
 
 Parameter count: 1
 
@@ -281,9 +288,19 @@ P1
 ```
 Arpeggio - Play a second and optionally third note after each played note
 
+Macros         : ATM_CMD_M_ARPEGGIO_ON(p1, p2)
+               : ATM_CMD_I_ARPEGGIO_OFF
+
 Parameter count: 2
 
 P1
+    Size   : 1 byte
+    Name   : Chord note shifts
+    Format : bkkkknnnn
+              ||||└└└└-> 3nd note shift: semitones to add to the 2nd [0,14]
+              └└└└-----> 2nd note shift: semitones to add to the 1st [0,14]
+
+P2
     Size   : 1 byte
     Name   : Effect configuration
     Format : b-edttttt
@@ -291,19 +308,15 @@ P1
               ||└------> 0: auto repeat, 1: trigger with note
               |└-------> 1: skip 3rd note, 0: play 3rd note
               └--------> [reserved]
-
-P2
-    Size   : 1 byte
-    Name   : Chord note shifts
-    Format : bkkkknnnn
-              ||||└└└└-> 3nd note shift: semitones to add to the 2nd [0,14]
-              └└└└-----> 2nd note shift: semitones to add to the 1st [0,14]
 ```
 
 ##### Note Cut
 
 ```
 Note cut - Stop note automatically after N ticks
+
+Macros         : ATM_CMD_M_NOTECUT_ON(p1)
+               : ATM_CMD_I_NOTECUT_OFF
 
 Parameter count: 1
 
@@ -322,6 +335,9 @@ P1
 ```
 Noise re-trigger - Continuously reseed the noise PRNG (pseudo random number generator)
 
+Macros         : ATM_CMD_M_NOISE_RETRIG_ON(p1)
+               : ATM_CMD_I_NOISE_RETRIG_OFF
+
 Parameter count: 1
 
 P1
@@ -337,9 +353,19 @@ P1
 ```
 Slide/Slide advanced - Ramp oscillator parameter up or down
 
+Macros         : ATM_CMD_M_SLIDE_VOL_ON(p1)
+               : ATM_CMD_M_SLIDE_FREQ_ON(p1)
+               : ATM_CMD_M_SLIDE_MOD_ON(p1)
+               : ATM_CMD_M_SLIDE_VOL_ADV_ON(p1, p2)
+               : ATM_CMD_M_SLIDE_FREQ_ADV_ON(p1, p2)
+               : ATM_CMD_M_SLIDE_MOD_ADV_ON(p1, p2)
+               : ATM_CMD_M_SLIDE_VOL_OFF
+               : ATM_CMD_M_SLIDE_FREQ_OFF
+               : ATM_CMD_M_SLIDE_MOD_OFF
+
 Parameter count: 1/2/3
 
-P1
+P0         : Implicit in macro name
     Size   : 1 byte
     Name   : Oscillator parameter to slide
     Note   : When only this parameter is present the effect is turned off
@@ -347,12 +373,12 @@ P1
               ||||||└└-> Oscillator parameter 0:vol, 1:freq, 3:mod
               └└└└└└---> [reserved]
 
-P2
+P1
     Size   : 1 byte
     Name   : Amount to slide up or down per tick (or each N ticks)
     Range  : [-128:127] (i8)
 
-P3
+P2
     Size   : 1 byte
     Name   : Configuration
     Note   : Defaults to 0 when not present i.e. update every tick, clamp and keep fading
@@ -367,9 +393,16 @@ P3
 ```
 LFO - Low frequency oscillator applied to one of the synth parameters
 
+Macros         : ATM_CMD_M_TREMOLO_ON(depth, rate)
+               : ATM_CMD_M_VIBRATO_ON(depth, rate)
+               : ATM_CMD_M_MOD_LFO_ON(depth, rate)
+               : ATM_CMD_M_TREMOLO_OFF
+               : ATM_CMD_M_VIBRATO_OFF
+               : ATM_CMD_M_MOD_LFO_OFF
+
 Parameter count: 1/2/3
 
-P1
+P0         : Implicit in macro name
     Size   : 1 byte
     Name   : Oscillator parameter to modulate
     Note   : When only this parameter is present the effect is turned off
@@ -377,14 +410,14 @@ P1
               ||||||└└-> Oscillator parameter 0:vol, 1:freq, 3:mod
               └└└└└└---> [reserved]
 
-P2
+P1
     Size   : 1 byte
     Name   : LFO depth
     Format : b-ddddddd
               |└└└└└└└-> Oscillator parameter delta per tick
               └--------> [reserved]
 
-P3
+P2
     Size   : 1 byte
     Name   : Configuration
     Note   : Defaults to 0 when not present (update every tick)
@@ -397,6 +430,10 @@ P3
 
 ```
 Call/Call Repeat - jump to a pattern index and optionally repeat it N times
+
+Macros         : ATM_CMD_M_CALL(pattern_index)
+               : ATM_CMD_M_CALL_REPEAT(pattern_index, repeat_count)
+               : ATM_CMD_I_PATTERN_END
 
 Parameter count: 1/2
 
@@ -418,6 +455,10 @@ P2
 ```
 Long Delay - delay any number of ticks between 1 and 65534
 
+Macros         : ATM_CMD_M_DELAY_TICKS(delay_up_to_32_ticks)
+               : ATM_CMD_M_DELAY_TICKS_1(delay_up_to_256_ticks)
+               : ATM_CMD_M_DELAY_TICKS_2(delay_up_to_65534_ticks)
+
 Parameter count: 1
 
 P1
@@ -434,6 +475,9 @@ P1
 ```
 Set transposition - set transposition in semitones
 
+Macros         : ATM_CMD_M_SET_TRANSPOSITION(semitones)
+               : ATM_CMD_I_TRANSPOSITION_OFF
+
 Parameter count: 1
 
 P1
@@ -446,6 +490,9 @@ P1
 
 ```
 Add transposition - add to current transposition in semitones
+
+Macros         : ATM_CMD_M_ADD_TRANSPOSITION(semitones)
+               : ATM_CMD_I_TRANSPOSITION_OFF
 
 Parameter count: 1
 
@@ -461,6 +508,8 @@ P1
 ```
 Set tempo - set tick rate in Hz
 
+Macros         : ATM_CMD_M_SET_TEMPO(tick_hz)
+
 Parameter count: 1
 
 P1
@@ -473,6 +522,8 @@ P1
 
 ```
 Add tempo - add to current tick rate in Hz
+
+Macros         : ATM_CMD_M_ADD_TEMPO(tick_hz)
 
 Parameter count: 1
 
@@ -487,13 +538,15 @@ P1
 ```
 Set volume - set volume
 
+Macros         : ATM_CMD_M_SET_VOLUME(volume)
+
 Parameter count: 1
 
 P1
     Size  : 1 byte
     Name  : Volume
     Format : b-ddddddd
-              |└└└└└└└-> Volume [0:127]
+              |└└└└└└└-> Volume [0:127], defaults to 0
               └--------> [reserved]
 ```
 
@@ -502,19 +555,23 @@ P1
 ```
 Set square wave duty cycle - set square wave duty cycle
 
+Macros         : ATM_CMD_M_SET_MOD(duty_cycle)
+
 Parameter count: 1
 
 P1
     Size  : 1 byte
     Name  : Duty cycle
     Range : [0:255] (u8)
-    Note  : Values from 0 to 255 map to 0%/100% duty cycle
+    Note  : Values from 0 to 255 map to 0%/100% duty cycle, the default 0x7F is 50%
 ```
 
 ##### Setup pattern loop
 
 ```
 Setup pattern loop - set the pattern index to loop to
+
+Macros         : ATM_CMD_M_SET_LOOP_PATTERN(loop_pattern)
 
 Parameter count: 1
 
