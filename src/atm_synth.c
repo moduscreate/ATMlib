@@ -42,7 +42,6 @@ static void atm_synth_ext_tick_handler(uint8_t cb_index, void *priv);
 /* ---- */
 
 #if ATM_HAS_FX_GLISSANDO || ATM_HAS_FX_SLIDE || ATM_HAS_FX_LFO
-
 /* flags: bit 7 = 0 clamp, 1 overflow */
 static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int16_t top, uint8_t flags)
 {
@@ -57,7 +56,6 @@ static uint16_t slide_quantity(int8_t amount, int16_t value, int16_t bottom, int
 	}
 	return res;
 }
-
 #endif
 
 #if ATM_HAS_FX_SLIDE || ATM_HAS_FX_LFO
@@ -134,9 +132,13 @@ void atm_synth_setup(void)
 static void atm_synth_init_channel(struct atm_channel_state *ch, struct osc_params *dst, struct atm_synth_state *player, uint8_t pattern_index)
 {
 	memset(ch, 0, sizeof(*ch));
+#if ATM_HAS_FX_NOTE_RETRIG
 	ch->arpCount = 0x80;
+#endif
 	ch->mod = 0x7F;
+#if ATM_HAS_FX_LOOP
 	ch->loop_pattern_index = 255;
+#endif
 	ch->dst_osc_params = dst;
 	ch->pstack[0].next_cmd_ptr = get_track_start_ptr(player, pattern_index);
 	ch->pstack[0].pattern_index = pattern_index;
@@ -389,6 +391,7 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 		osc_set_tick_rate(0, atmlib_state.tick_rate);
 	}
 
+#if ATM_HAS_FX_LOOP
 	/* if all channels are inactive, stop playing or check for repeat */
 	if (!(atmlib_state.channel_active_mute & 0xF0)) {
 		for (uint8_t k = 0; k < ARRAY_SIZE(channels); k++) {
@@ -401,8 +404,10 @@ static void atm_synth_score_tick_handler(uint8_t cb_index, void *priv) {
 			ch->delay = 0;
 			atmlib_state.channel_active_mute |= (1<<(k+OSC_CH_COUNT));
 		}
-		if (!(atmlib_state.channel_active_mute & 0xF0)) {
-			atm_synth_stop_score();
-		}
+	}
+#endif
+
+	if (!(atmlib_state.channel_active_mute & 0xF0)) {
+		atm_synth_stop_score();
 	}
 }

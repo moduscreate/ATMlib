@@ -9,26 +9,32 @@ static void trigger_note(const uint8_t note, struct atm_channel_state *ch)
 	ch->dst_osc_params->phase_increment = note_index_2_phase_inc(note + ch->trans_config);
 	if (!note) {
 		ch->dst_osc_params->vol = 0;
-	} else if (!ch->vf_slide.slide_amount) {
-		/* No slide */
-		goto trigger_both;
-	} else if (ch->vf_slide.slide_config & 0x40) {
-		/* Slide is re-triggered */
-		ch->vf_slide.slide_count &= 0x3F;
-		goto trigger_both;
 	} else {
-		/* Slide is not re-triggered */
-		const uint8_t q = ch->vf_slide.slide_count & 0xC0;
-		if (!q == 0) {
-			/* Vol slide, don't trigger vol */
-			ch->dst_osc_params->mod = ch->mod;
-		} else if (q == 0x80) {
-			/* Mod slide, don't trigger mod */
-			ch->dst_osc_params->vol = ch->vol;
-		} else {
+#if ATM_HAS_FX_SLIDE
+		if (!ch->vf_slide.slide_amount) {
+			/* No slide */
 			goto trigger_both;
+		} else if (ch->vf_slide.slide_config & 0x40) {
+			/* Slide is re-triggered */
+			ch->vf_slide.slide_count &= 0x3F;
+			goto trigger_both;
+		} else {
+			/* Slide is not re-triggered */
+			const uint8_t q = ch->vf_slide.slide_count & 0xC0;
+			if (!q == 0) {
+				/* Vol slide, don't trigger vol */
+				ch->dst_osc_params->mod = ch->mod;
+			} else if (q == 0x80) {
+				/* Mod slide, don't trigger mod */
+				ch->dst_osc_params->vol = ch->vol;
+			} else {
+				goto trigger_both;
+			}
 		}
 		return;
+#else
+		goto trigger_both;
+#endif
 	}
 
 trigger_both:
@@ -63,23 +69,24 @@ static void process_immediate_cmd(const uint8_t ch_index, const uint8_t cmd_id, 
 			}
 			break;
 
-#if ATM_HAS_FX_GLISSANDO
 		case ATM_CMD_I_GLISSANDO_OFF:
+#if ATM_HAS_FX_GLISSANDO
 			ch->glisConfig = 0;
-			break;
 #endif
+			break;
 
-#if ATM_HAS_FX_ARPEGGIO
+
 		case ATM_CMD_I_ARPEGGIO_OFF:
+#if ATM_HAS_FX_NOTE_RETRIG
 			ch->arpCount = 0x80;
-			break;
 #endif
+			break;
 
-#if ATM_HAS_FX_NOISE_RETRIG
 		case ATM_CMD_I_NOISE_RETRIG_OFF:
+#if ATM_HAS_FX_NOISE_RETRIG
 			ch->reConfig = 0;
-			break;
 #endif
+			break;
 	}
 	return;
 
@@ -94,12 +101,12 @@ static void process_1p_cmd(const struct atm_cmd_data *cmd, struct atm_synth_stat
 	const enum atm_single_byte_cmd_id_constants cid = cmd->id;
 
 	switch (cid) {
-#if ATM_HAS_FX_NOISE_RETRIG
 		case ATM_CMD_1P_NOISE_RETRIG_ON:
+#if ATM_HAS_FX_NOISE_RETRIG
 			ch->reConfig = cmd->params[0];
 			ch->reCount = 0;
-			break;
 #endif
+			break;
 
 		case ATM_CMD_1P_SET_TRANSPOSITION:
 			ch->trans_config = cmd->params[0];
@@ -157,28 +164,30 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 			/* if the stack is full and we cannot call, skip the call command */
 			break;
 
-#if ATM_HAS_FX_GLISSANDO
 		case ATM_CMD_NP_GLISSANDO_ON:
+#if ATM_HAS_FX_GLISSANDO
 			ch->glisConfig = cmd->params[0];
 			ch->glisCount = 0;
-			break;
 #endif
+			break;
 
-#if ATM_HAS_FX_ARPEGGIO
 		case ATM_CMD_NP_ARPEGGIO_ON:
+#if ATM_HAS_FX_NOTE_RETRIG
 			ch->arpTiming = cmd->params[0];
 			/* arpeggio or notecut */
 			ch->arpNotes = csz > 1 ? cmd->params[1] : 0xFF;
 			ch->arpCount = 0x00;
-			break;
 #endif
+			break;
 
 		case ATM_CMD_NP_SET_LOOP_PATTERN:
+#if ATM_HAS_FX_LOOP
 			ch->loop_pattern_index = cmd->params[0];
+#endif
 			break;
 
-#if ATM_HAS_FX_SLIDE
 		case ATM_CMD_NP_SLIDE:
+#if ATM_HAS_FX_SLIDE
 			/* b------pp s = pp = param: vol, freq, mod */
 			if (csz > 1) {
 				/* FX on */
@@ -189,11 +198,11 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 				/* FX off */
 				ch->vf_slide.slide_amount = 0;
 			}
-			break;
 #endif
+			break;
 
-#if ATM_HAS_FX_LFO
 		case ATM_CMD_NP_LFO:
+#if ATM_HAS_FX_LFO
 			/* b------pp s = pp = param: vol, freq, mod */
 			if (csz > 1) {
 				/* FX on */
@@ -213,8 +222,8 @@ static void process_np_cmd(const struct atm_cmd_data *cmd, const uint8_t csz, st
 				trigger_note(ch->note, ch);
 				*/
 			}
-			break;
 #endif
+			break;
 
 		case ATM_CMD_NP_LONG_DELAY:
 			ch->delay = csz > 1 ? (cmd->params[0]<<8)|cmd->params[1] : cmd->params[0];
