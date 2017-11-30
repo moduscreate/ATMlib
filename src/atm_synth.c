@@ -136,7 +136,7 @@ static void atm_synth_init_channel(struct atm_channel_state *ch, struct osc_para
 	memset(ch, 0, sizeof(*ch));
 	ch->arpCount = 0x80;
 	ch->mod = 0x7F;
-	ch->loop_pattern_index == 255;
+	ch->loop_pattern_index = 255;
 	ch->dst_osc_params = dst;
 	ch->pstack[0].next_cmd_ptr = get_track_start_ptr(player, pattern_index);
 	ch->pstack[0].pattern_index = pattern_index;
