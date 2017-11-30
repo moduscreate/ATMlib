@@ -34,6 +34,12 @@ Thanks to [Modus Create](https://moduscreate.com) for sponsoring and participati
 
 All of the above while code size was reduced (from 3245 to 2268 bytes as of da3cdbca79ea5ce22431061a4365d45d771434b3) and bug were squashed!
 
+### To Do
+
+* Reduce SRAM used by effect parameters
+* Try implementing selectable waveforms: triangle, sawtooth, square and lookup table
+* Support 8 channels music
+
 ### Music playback example
 
 
