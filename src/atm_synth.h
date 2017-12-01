@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "osc.h"
+#include "atm_cmd_constants.h"
 
 /* Adjust the following to reduce memory usage */
 
