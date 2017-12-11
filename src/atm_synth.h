@@ -47,6 +47,8 @@ struct atm_synth_ext {
 	void *priv;
 };
 
+extern struct atm_synth_state atmlib_state;
+
 void atm_synth_setup(void);
 
 void atm_synth_play_score(const uint8_t *score);
