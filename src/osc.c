@@ -48,6 +48,9 @@ void osc_setup(void)
 	osc_reset();
 	/* PWM setup using timer 4 */
 	PLLFRQ = 0b01011010;    /* PINMUX:16MHz XTAL, PLLUSB:48MHz, PLLTM:1, PDIV:96MHz */
+	PLLCSR = 0b00010010;
+	/* Wait for PLL lock */
+	while (!(PLLCSR & 0x01)) {}
 	TCCR4A = 0b01000010;    /* PWM mode */
 	/* TCCR4B will be se to 0b00000001 for clock source/1, 96MHz/(OCR4C+1)/2 ~ 95703Hz */
 	TCCR4D = 0b00000001;    /* Dual Slope PWM (the /2 in the eqn. above is because of dual slope PWM) */
@@ -137,200 +140,57 @@ static __attribute__((used)) void osc_tick_handler(void)
 	}
 }
 
-#define ASM_EOL "\n\t"
-
-ISR(TIMER3_COMPA_vect, ISR_NAKED)
+ISR(TIMER3_COMPA_vect)
 {
-	asm volatile(
-"	push r2                                                        " ASM_EOL
-"	in   r2,                    __SREG__                           " ASM_EOL
-"	push r18                                                       " ASM_EOL
-"	push r27                                                       " ASM_EOL
-"	push r26                                                       " ASM_EOL
-"	push r0                                                        " ASM_EOL
-"	push r1                                                        " ASM_EOL
+	uint16_t pcm = OSC_DC_OFFSET;
+	struct osc_params *p = osc_params_array;
+	for (uint8_t i=0;i<3;i++,p++) {
+		const uint8_t vol = p->vol;
+		if (!vol) {
+			/* skip if volume is zero and save some cycles */
+			continue;
+		}
+		const uint16_t pha = osc_pha_acc_array[i] + p->phase_increment;
+		osc_pha_acc_array[i] = pha;
+		if (OSC_HI(pha) > p->mod) {
+			pcm += vol;
+		} else {
+			pcm -= vol;
+		}
+	}
 
-"; Setup DC offset                                                 " ASM_EOL
-"	ldi  r26 ,%[dcl]                                               " ASM_EOL
-"	ldi  r27 ,%[dch]                                               " ASM_EOL
+	/* p == &osc_params_array[3] when leaving the loop above */
+	{
+		const uint8_t vol = p->vol;
+		/* skip if volume is zero and save some cycles */
+		if (vol) {
+			uint16_t shift_reg = p->phase_increment;
+			const uint8_t msb = OSC_HI(shift_reg) & 0x80;
+			shift_reg += shift_reg;
+			if (msb) {
+				pcm += vol;
+				shift_reg ^= 0x002D;
+			} else {
+				pcm -= vol;
+			}
+			p->phase_increment = shift_reg;
+		}
+	}
 
-"; OSC 3 noise generator                                           " ASM_EOL
-"	ldi  r18,                   1                                  " ASM_EOL
-"	lds  r0,                    osc_params_array+3*%[osz]+%[phi]   " ASM_EOL
-"	lds  r1,                    osc_params_array+3*%[osz]+%[phi]+1 " ASM_EOL
-"	add  r0,                    r0                                 " ASM_EOL
-"	adc  r1,                    r1                                 " ASM_EOL
-"	sbrc r1,                    7                                  " ASM_EOL
-"	eor  r0,                    r18                                " ASM_EOL
-"	sbrc r1,                    6                                  " ASM_EOL
-"	eor  r0,                    r18                                " ASM_EOL
-"	sts  osc_params_array+3*%[osz]+%[phi],   r0                    " ASM_EOL
-"	sts  osc_params_array+3*%[osz]+%[phi]+1, r1                    " ASM_EOL
-"; OSC 3 continued                                                 " ASM_EOL
-"	clr  r18                                                       " ASM_EOL
-"	lds  r0,                    osc_params_array+3*%[osz]+%[vol]   " ASM_EOL
-"	neg  r1                                                        " ASM_EOL
-"	brpl 1f                                                        " ASM_EOL
-"	com  r18                                                       " ASM_EOL
-"	neg  r0                                                        " ASM_EOL
-"	sbci r18,-1                                                    " ASM_EOL
-"1:                                                                " ASM_EOL
-"	add  r26,                   r0                                 " ASM_EOL
-"	adc  r27,                   r18                                " ASM_EOL
+	TC4H = OSC_HI(pcm);
+	OCR4A = OSC_LO(pcm);
 
-"; OSC 0 advance phase accumulator                                 " ASM_EOL
-"	lds  r18,                   osc_params_array+0*%[osz]+%[phi]   " ASM_EOL
-"	lds  r0,                    osc_pha_acc_array+0*%[asz]         " ASM_EOL
-"	add  r0,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+0*%[asz],          r0                   " ASM_EOL
-"	lds  r18,                   osc_params_array+0*%[osz]+%[phi]+1 " ASM_EOL
-"	lds  r0,                    osc_pha_acc_array+0*%[asz]+1       " ASM_EOL
-"	adc  r0,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+0*%[asz]+1,        r0                   " ASM_EOL
-"; OSC 0 square waveform                                           " ASM_EOL
-"	lds  r1,                    osc_params_array+0*%[osz]+%[mod]   " ASM_EOL
-"	clr  r18                                                       " ASM_EOL
-"	cp   r0,                    r1                                 " ASM_EOL
-"	lds  r1,                    osc_params_array+0*%[osz]+%[vol]   " ASM_EOL
-"	brcs 1f                                                        " ASM_EOL
-"	com  r18                                                       " ASM_EOL
-"	neg  r1                                                        " ASM_EOL
-"	sbci r18,-1                                                    " ASM_EOL
-"1:                                                                " ASM_EOL
-"	add  r26,                   r1                                 " ASM_EOL
-"	adc  r27,                   r18                                " ASM_EOL
-
-"; OSC 1 advance phase accumulator                                 " ASM_EOL
-"	lds  r18,                   osc_params_array+1*%[osz]+%[phi]   " ASM_EOL
-"	lds  r0,                    osc_pha_acc_array+1*%[asz]         " ASM_EOL
-"	add  r0,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+1*%[asz],          r0                   " ASM_EOL
-"	lds  r18,                   osc_params_array+1*%[osz]+%[phi]+1 " ASM_EOL
-"	lds  r0,                    osc_pha_acc_array+1*%[asz]+1       " ASM_EOL
-"	adc  r0,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+1*%[asz]+1,        r0                   " ASM_EOL
-"; OSC 1 square waveform                                           " ASM_EOL
-"	lds  r1,                    osc_params_array+1*%[osz]+%[mod]   " ASM_EOL
-"	clr  r18                                                       " ASM_EOL
-"	cp   r0,                    r1                                 " ASM_EOL
-"	lds  r1,                    osc_params_array+1*%[osz]+%[vol]   " ASM_EOL
-"	brcs 1f                                                        " ASM_EOL
-"	com  r18                                                       " ASM_EOL
-"	neg  r1                                                        " ASM_EOL
-"	sbci r18,-1                                                    " ASM_EOL
-"1:                                                                " ASM_EOL
-"	add  r26,                   r1                                 " ASM_EOL
-"	adc  r27,                   r18                                " ASM_EOL
-
-"; OSC 2 advance phase accumulator                                 " ASM_EOL
-"	lds  r18,                   osc_params_array+2*%[osz]+%[phi]   " ASM_EOL
-"	lds  r0,                    osc_pha_acc_array+2*%[asz]         " ASM_EOL
-"	add  r0,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+2*%[asz],          r0                   " ASM_EOL
-"	lds  r18,                   osc_params_array+2*%[osz]+%[phi]+1 " ASM_EOL
-"	lds  r0,                    osc_pha_acc_array+2*%[asz]+1       " ASM_EOL
-"	adc  r0,                    r18                                " ASM_EOL
-"	sts  osc_pha_acc_array+2*%[asz]+1,        r0                   " ASM_EOL
-"; OSC 2 square waveform                                           " ASM_EOL
-"	lds  r1,                    osc_params_array+2*%[osz]+%[mod]   " ASM_EOL
-"	clr  r18                                                       " ASM_EOL
-"	cp   r0,                    r1                                 " ASM_EOL
-"	lds  r1,                    osc_params_array+2*%[osz]+%[vol]   " ASM_EOL
-"	brcs 1f                                                        " ASM_EOL
-"	com  r18                                                       " ASM_EOL
-"	neg  r1                                                        " ASM_EOL
-"	sbci r18,-1                                                    " ASM_EOL
-"1:                                                                " ASM_EOL
-"	add  r26,                   r1                                 " ASM_EOL
-"	adc  r27,                   r18                                " ASM_EOL
-"	sts  %[regh],               r27                                " ASM_EOL
-"	sts  %[reg],                r26                                " ASM_EOL
-"; tick handler prescaler                                          " ASM_EOL
-"	lds  r18,                   osc_int_count                      " ASM_EOL
-"	dec  r18                                                       " ASM_EOL
-"	sts  osc_int_count,         r18                                " ASM_EOL
-"	and  r18,                   r18                                " ASM_EOL
-"	;check if a channel tick is due only once every                " ASM_EOL
-"	;8 interrupts                                                  " ASM_EOL
-"	brne isr_done                                                  " ASM_EOL
-"	ldi  r18,                   %[div]                             " ASM_EOL
-"	sts  osc_int_count,         r18                                " ASM_EOL
-"; check if a tick is due for each OSC                             " ASM_EOL
-"	clr  r27                                                       " ASM_EOL
-"	lds  r26,                   osc_cb+0*%[csz]+%[pre]             " ASM_EOL
-"	subi r26,                   1                                  " ASM_EOL
-"	;Use the carry from r26-1 to make r27 undeflow                 " ASM_EOL
-"	;instead of branching. (saves 9 cycles in total)               " ASM_EOL
-"	sbci r27,                   0                                  " ASM_EOL
-"	sts  osc_cb+0*%[csz]+%[pre], r26                               " ASM_EOL
-"	lds  r26,                   osc_cb+1*%[csz]+%[pre]             " ASM_EOL
-"	subi r26,                   1                                  " ASM_EOL
-"	sbci r27,                   0                                  " ASM_EOL
-"	sts  osc_cb+1*%[csz]+%[pre], r26                               " ASM_EOL
-"	;r27 underflow means at least one channel's                    " ASM_EOL
-"	;tick is due.                                                  " ASM_EOL
-"	brne call_playroutine                                          " ASM_EOL
-"isr_done:                                                         " ASM_EOL
-"	pop  r1                                                        " ASM_EOL
-"	pop  r0                                                        " ASM_EOL
-"	pop  r26                                                       " ASM_EOL
-"	pop  r27                                                       " ASM_EOL
-"	pop  r18                                                       " ASM_EOL
-"	out  __SREG__,              r2                                 " ASM_EOL
-"	pop  r2                                                        " ASM_EOL
-"	reti                                                           " ASM_EOL
-"call_playroutine:                                                 " ASM_EOL
-"	lds  r26,                   osc_isr_reenter                    " ASM_EOL
-"	cpi  r26,                   0                                  " ASM_EOL
-"	brne isr_done                                                  " ASM_EOL
-"	;r27 is always nonzero when reaching this point                " ASM_EOL
-"	sts  osc_isr_reenter,       r27                                " ASM_EOL
-"	sei                                                            " ASM_EOL
-"	push r19                                                       " ASM_EOL
-"	push r20                                                       " ASM_EOL
-"	push r21                                                       " ASM_EOL
-"	push r22                                                       " ASM_EOL
-"	push r23                                                       " ASM_EOL
-"	push r24                                                       " ASM_EOL
-"	push r25                                                       " ASM_EOL
-"	push r30                                                       " ASM_EOL
-"	push r31                                                       " ASM_EOL
-
-"	clr  r1                                                        " ASM_EOL
-"	call osc_tick_handler                                          " ASM_EOL
-
-"	sts  osc_isr_reenter,       r1                                 " ASM_EOL
-"	pop  r31                                                       " ASM_EOL
-"	pop  r30                                                       " ASM_EOL
-"	pop  r25                                                       " ASM_EOL
-"	pop  r24                                                       " ASM_EOL
-"	pop  r23                                                       " ASM_EOL
-"	pop  r22                                                       " ASM_EOL
-"	pop  r21                                                       " ASM_EOL
-"	pop  r20                                                       " ASM_EOL
-"	pop  r19                                                       " ASM_EOL
-
-"	pop  r1                                                        " ASM_EOL
-"	pop  r0                                                        " ASM_EOL
-"	pop  r26                                                       " ASM_EOL
-"	pop  r27                                                       " ASM_EOL
-"	pop  r18                                                       " ASM_EOL
-"	out  __SREG__,              r2                                 " ASM_EOL
-"	pop  r2                                                        " ASM_EOL
-"	reti                                                           " ASM_EOL
-	::
-	[t4e] "M" _SFR_MEM_ADDR(TCCR4E),
-	[reg] "M" _SFR_MEM_ADDR(OCR4A),
-	[regh] "M" _SFR_MEM_ADDR(TC4H),
-	[dch] "M" (OSC_HI(OSC_DC_OFFSET)),
-	[dcl] "M" (OSC_LO(OSC_DC_OFFSET)),
-	[div] "M" (OSC_ISR_PRESCALER_DIV),
-	[osz] "M" (sizeof(struct osc_params)),
-	[asz] "M" (sizeof(uint16_t)),
-	[csz] "M" (sizeof(struct callback_info)),
-	[pre] "M" (offsetof(struct callback_info, callback_prescaler_counter)),
-	[phi] "M" (offsetof(struct osc_params, phase_increment)),
-	[mod] "M" (offsetof(struct osc_params, mod)),
-	[vol] "M" (offsetof(struct osc_params, vol))
-	);
+	if (!(--osc_int_count)) {
+		osc_int_count = OSC_ISR_PRESCALER_DIV;
+		const uint8_t tick0_due = --osc_cb[0].callback_prescaler_counter == 255;
+		const uint8_t tick1_due = --osc_cb[1].callback_prescaler_counter == 255;
+		if (tick0_due || tick1_due) {
+			if (!osc_isr_reenter) {
+				osc_isr_reenter = 1;
+				sei();
+				osc_tick_handler();
+				osc_isr_reenter = 0;
+			}
+		}
+	}
 }
