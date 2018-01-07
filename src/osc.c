@@ -169,10 +169,11 @@ ISR(TIMER3_COMPA_vect)
 			shift_reg += shift_reg;
 			if (msb) {
 				pcm += vol;
-				p->phase_increment = shift_reg ^ 0x002D;
+				shift_reg ^= 0x002D;
 			} else {
 				pcm -= vol;
 			}
+			p->phase_increment = shift_reg;
 		}
 	}
 
